@@ -22,6 +22,7 @@ bool ComicZipViewerFrame::Create()
 	auto ret = wxFrame::Create(nullptr, wxID_ANY, wxS("ComicZipViewer"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE | wxWANTS_CHARS);
 	m_pContextMenu = new wxMenu();
 	m_pContextMenu->Append(wxID_OPEN, wxS("&Open"));
+	m_pContextMenu->Append(wxID_CLOSE, wxS("&Close"));
 	if (!ret)
 	{
 		return false;
@@ -139,7 +140,7 @@ void ComicZipViewerFrame::ShowImage(const wxImage& image)
 
 	D2D1_MAPPED_RECT mappedRect;
 	bitmap->Map(D2D1_MAP_OPTIONS_DISCARD | D2D1_MAP_OPTIONS_WRITE, &mappedRect);
-	const wxByte* const rowData = image.GetData();
+	wxByte* const rowData = image.GetData();
 	for(int row = 0; row < size.GetHeight(); ++row)
 	{
 		for(int cols = 0; cols < size.GetWidth(); ++cols)
@@ -152,7 +153,6 @@ void ComicZipViewerFrame::ShowImage(const wxImage& image)
 	}
 
 	bitmap->Unmap();
-
 	m_bitmap = bitmap;
 	m_imageSize = size;
 	Render();

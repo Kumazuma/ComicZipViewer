@@ -21,20 +21,28 @@ void View::Show()
 	m_pFrame->Show();
 }
 
-void View::OnOpenFile(wxCommandEvent& evt)
+void View::OnMenu(wxCommandEvent& evt)
 {
-	wxFileDialog dialog(m_pFrame, wxS("Select a file"));
-	dialog.SetWildcard(wxS("zip files(*.zip)|*.zip"));
-	if(dialog.ShowModal() == wxID_CANCEL)
-		return;
+	const auto eventId = evt.GetId();
+	if(eventId == wxID_OPEN)
+	{
+		wxFileDialog dialog(m_pFrame, wxS("Select a file"));
+		dialog.SetWildcard(wxS("zip files(*.zip)|*.zip"));
+		if (dialog.ShowModal() == wxID_CANCEL)
+			return;
 
-	auto path = dialog.GetPath();
-	auto& app = wxGetApp();
-	if(!app.OpenFile(path))
-		return;
+		auto path = dialog.GetPath();
+		auto& app = wxGetApp();
+		if (!app.OpenFile(path))
+			return;
 
-	wxImage image = app.GetDecodedImage(0);
-	m_pFrame->ShowImage(image);
+		wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+		m_pFrame->ShowImage(image);
+	}
+	else if(eventId == wxID_CLOSE)
+	{
+		m_pFrame->Close();
+	}
 }
 
 void View::OnClose(wxCloseEvent& evt)
@@ -42,9 +50,10 @@ void View::OnClose(wxCloseEvent& evt)
 	evt.Skip();
 	m_pFrame->SetEventHandler(m_pFrame);
 	SetNextHandler(nullptr);
+	m_pFrame->Destroy();
 }
 
 BEGIN_EVENT_TABLE(View, wxEvtHandler)
-EVT_MENU(wxID_OPEN, View::OnOpenFile)
+EVT_MENU(wxID_ANY, View::OnMenu)
 EVT_CLOSE(View::OnClose)
 END_EVENT_TABLE()

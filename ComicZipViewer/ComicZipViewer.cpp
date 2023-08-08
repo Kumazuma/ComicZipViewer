@@ -41,7 +41,9 @@ bool ComicZipViewerApp::OpenFile(const wxString& filePath)
 	// TODO: Reset cache
 	m_pModel->openedPath = filePath;
 	m_pModel->pageList.clear();
+	m_pModel->currentPageNumber = 1;
 	m_pPageCollection->GetPageNames(&m_pModel->pageList);
+	m_pModel->pageName = m_pModel->pageList.front();
 	return true;
 }
 
@@ -64,6 +66,7 @@ constexpr uint64_t MAGIC_NUMBER_GIF87A = 0x00474946383761; // GIF87a;
 constexpr uint64_t MAGIC_NUMBER_GIF89A = 0x00474946383961; // GIF89a;
 wxImage ComicZipViewerApp::GetDecodedImage(uint32_t idx)
 {
+	idx -= 1;
 	wxImage image;
 	if(m_pModel->pageList.size() <= idx)
 		return {};
@@ -100,4 +103,14 @@ wxImage ComicZipViewerApp::GetDecodedImage(uint32_t idx)
 	delete buffer;
 
 	return image;
+}
+
+const wxString& ComicZipViewerApp::GetCurrentPageName() const
+{
+	return m_pModel->pageName;
+}
+
+int ComicZipViewerApp::GetCurrentPageNumber() const
+{
+	return m_pModel->currentPageNumber;
 }

@@ -31,6 +31,10 @@ PageCollectionZip::~PageCollectionZip()
 	delete m_pZipStream;
 	m_pZipStream = nullptr;
 	m_pFileStream = nullptr;
+	for(auto& entry: m_entryTable)
+	{
+		delete entry.second;
+	}
 }
 
 void PageCollectionZip::GetPageNames(std::vector<wxString>* names) const

@@ -15,7 +15,8 @@ public:
 	uint32_t GetPageCount() const;
 	bool GetPageName(uint32_t idx, wxString* filename);
 	wxImage GetDecodedImage(uint32_t idx);
-
+	const wxString& GetCurrentPageName() const;
+	int GetCurrentPageNumber() const;
 private:
 	View* m_pView;
 	Model* m_pModel;
