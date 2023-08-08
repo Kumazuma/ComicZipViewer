@@ -26,6 +26,10 @@ protected:
 	void Render();
 	void Fullscreen();
 	void RestoreFullscreen();
+	void OnShowControlPanel(wxCommandEvent& event);
+	void OnHideControlPanel(wxCommandEvent& event);
+	void OnMouseMove(wxMouseEvent& evt);
+	void OnShown(wxShowEvent& evt);
 private:
 	ComPtr<ID3D11Device> m_d3dDevice;
 	ComPtr<ID3D11DeviceContext> m_d3dContext;
@@ -38,7 +42,12 @@ private:
 	ComPtr<ID2D1Bitmap1> m_bitmap;
 	bool m_isSizing;
 	bool m_enterIsDown;
+	bool m_shownControlPanel;
+	float m_alphaControlPanel;
 	std::optional<wxPoint> m_posPrevRDown;
 	wxMenu* m_pContextMenu;
 	wxSize m_imageSize;
 };
+
+wxDECLARE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);
+wxDECLARE_EVENT(wxEVT_HIDE_CONTROL_PANEL, wxCommandEvent);

@@ -1,6 +1,9 @@
 #include "framework.h"
 #include "ComicZipViewerFrame.h"
 
+wxDEFINE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_HIDE_CONTROL_PANEL, wxCommandEvent);
+
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -9,6 +12,7 @@ ComicZipViewerFrame::ComicZipViewerFrame()
 	: m_isSizing(false)
 	, m_enterIsDown(false)
 	, m_pContextMenu(nullptr)
+	, m_alphaControlPanel(0.f)
 {
 }
 
@@ -38,7 +42,7 @@ bool ComicZipViewerFrame::Create()
 		return false;
 	}
 
-	auto clientSize = GetSize();
+	auto clientSize = GetClientSize();
 
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc1{};
 	swapChainDesc1.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
@@ -82,6 +86,7 @@ bool ComicZipViewerFrame::Create()
 	hRet = m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(1.f, 0.f, 0.f), &m_d2dBrush);
 
 	m_d2dContext->SetTarget(m_targetBitmap.Get());
+	ResizeSwapChain(GetClientSize());
 	return true;
 }
 
@@ -106,7 +111,6 @@ WXLRESULT ComicZipViewerFrame::MSWWindowProc(WXUINT message, WXWPARAM wParam, WX
 			//    return DefWindowProcW(GetHWND(), message, wParam, lParam);
 			//}
 		}
-
 	}
 
 	return wxFrame::MSWWindowProc(message, wParam, lParam);
@@ -140,14 +144,16 @@ void ComicZipViewerFrame::ShowImage(const wxImage& image)
 
 	D2D1_MAPPED_RECT mappedRect;
 	bitmap->Map(D2D1_MAP_OPTIONS_DISCARD | D2D1_MAP_OPTIONS_WRITE, &mappedRect);
-	wxByte* const rowData = image.GetData();
-	for(int row = 0; row < size.GetHeight(); ++row)
+	const wxByte* const rowData = image.GetData();
+	const wxByte* const alpha = image.GetAlpha();
+	const bool hasAlpha = image.HasAlpha();
+	for (int row = 0; row < size.GetHeight(); ++row)
 	{
-		for(int cols = 0; cols < size.GetWidth(); ++cols)
+		for (int cols = 0; cols < size.GetWidth(); ++cols)
 		{
 			const int idx = row * 3 * size.GetWidth() + cols * 3;
 			uint32_t rgba = 0;
-			rgba = rowData[idx] | rowData[idx + 1] << 8 | rowData[idx + 2] << 16 | 0xFF << 24;
+			rgba = rowData[idx] | rowData[idx + 1] << 8 | rowData[idx + 2] << 16 | (hasAlpha ? alpha[row * size.GetWidth() + cols] : 0xFF) << 24;
 			*reinterpret_cast<uint32_t*>(mappedRect.bits + row * mappedRect.pitch + cols * 4) = rgba;
 		}
 	}
@@ -236,8 +242,15 @@ void ComicZipViewerFrame::Render()
 		m_d2dContext->DrawBitmap(m_bitmap.Get(), D2D1::RectF(0.f, 0.f, m_imageSize.GetWidth(), m_imageSize.GetHeight()));
 	}
 
+	if(m_alphaControlPanel > 0.f)
+	{
+		auto size = GetClientSize();
+		m_d2dContext->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect(), nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE, D2D1::IdentityMatrix(), m_alphaControlPanel), nullptr);
+		m_d2dContext->FillRectangle(D2D1::RectF(0.f, size.GetHeight() / 2.f, size.GetWidth(), size.GetHeight()), m_d2dBrush.Get());
+		m_d2dContext->PopLayer();
+	}
+	
 	hRet = m_d2dContext->EndDraw();
-	m_d3dContext->Flush();
 	hRet = m_swapChain->Present(0, 0);
 }
 
@@ -260,10 +273,75 @@ void ComicZipViewerFrame::RestoreFullscreen()
 	Render();
 }
 
+void ComicZipViewerFrame::OnShowControlPanel(wxCommandEvent& event)
+{
+	m_alphaControlPanel = 0.f;
+	while(m_shownControlPanel)
+	{
+		wxYield();
+		if(m_alphaControlPanel >= 1.f)
+		{
+			m_alphaControlPanel = 1.f;
+			break;
+		}
+
+		Render();
+		m_alphaControlPanel += 0.00025f;
+	}
+}
+
+void ComicZipViewerFrame::OnHideControlPanel(wxCommandEvent& event)
+{
+	while(!m_shownControlPanel)
+	{
+		wxYield();
+		if (m_alphaControlPanel <= 0.f)
+		{
+			m_alphaControlPanel = 0.f;
+			break;
+		}
+
+		Render();
+		m_alphaControlPanel -= 0.00025f;
+	}
+}
+
+void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
+{
+	auto size = GetClientSize();
+	if(evt.GetPosition().y > size.y / 2)
+	{
+		if(!m_shownControlPanel)
+		{
+			m_shownControlPanel = true;
+			auto evt = new wxCommandEvent(wxEVT_SHOW_CONTROL_PANEL);
+			evt->SetEventObject(this);
+			QueueEvent(evt);
+		}
+	}
+	else
+	{
+		if(m_shownControlPanel)
+		{
+			m_shownControlPanel = false;
+			auto evt = new wxCommandEvent(wxEVT_HIDE_CONTROL_PANEL);
+			evt->SetEventObject(this);
+			QueueEvent(evt);
+		}
+	}
+}
+
+void ComicZipViewerFrame::OnShown(wxShowEvent& evt)
+{
+}
+
 BEGIN_EVENT_TABLE(ComicZipViewerFrame, wxFrame)
-EVT_SIZE(ComicZipViewerFrame::OnSize)
+	EVT_SIZE(ComicZipViewerFrame::OnSize)
 EVT_KEY_DOWN(ComicZipViewerFrame::OnKeyDown)
 EVT_KEY_UP(ComicZipViewerFrame::OnKeyUp)
 EVT_RIGHT_DOWN(ComicZipViewerFrame::OnRButtonDown)
 EVT_RIGHT_UP(ComicZipViewerFrame::OnRButtonUp)
+EVT_MOTION(ComicZipViewerFrame::OnMouseMove)
+EVT_COMMAND(wxID_ANY, wxEVT_SHOW_CONTROL_PANEL, ComicZipViewerFrame::OnShowControlPanel)
+EVT_COMMAND(wxID_ANY, wxEVT_HIDE_CONTROL_PANEL, ComicZipViewerFrame::OnHideControlPanel)
 END_EVENT_TABLE()
