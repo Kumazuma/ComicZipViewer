@@ -2,6 +2,7 @@
 #include "ComicZipViewer.h"
 #include "View.h"
 #include "Model.h"
+#include "NaturalSortOrder.h"
 #include <wx/mstream.h>
 wxIMPLEMENT_APP(ComicZipViewerApp);
 
@@ -15,6 +16,8 @@ ComicZipViewerApp::ComicZipViewerApp()
 bool ComicZipViewerApp::OnInit()
 {
 	wxInitAllImageHandlers();
+
+	// Test
 	m_pModel = new Model();
 	m_pView = new View();
 	m_pView->Show();
@@ -43,6 +46,7 @@ bool ComicZipViewerApp::OpenFile(const wxString& filePath)
 	m_pModel->pageList.clear();
 	m_pModel->currentPageNumber = 1;
 	m_pPageCollection->GetPageNames(&m_pModel->pageList);
+	std::sort(m_pModel->pageList.begin(), m_pModel->pageList.end(), NaturalSortOrder{});
 	m_pModel->pageName = m_pModel->pageList.front();
 	return true;
 }
