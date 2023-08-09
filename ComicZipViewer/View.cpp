@@ -38,6 +38,7 @@ void View::OnMenu(wxCommandEvent& evt)
 
 		wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
 		m_pFrame->ShowImage(image);
+		m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s"), app.GetCurrentPageName()));
 	}
 	else if(eventId == wxID_CLOSE)
 	{
