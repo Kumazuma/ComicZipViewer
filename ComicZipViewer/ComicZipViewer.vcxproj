@@ -163,6 +163,7 @@
     <ClInclude Include="IAllocator.h" />
     <ClInclude Include="IBuffer.h" />
     <ClInclude Include="Model.h" />
+    <ClInclude Include="NaturalSortOrder.h" />
     <ClInclude Include="PageCollection.h" />
     <ClInclude Include="PageCollectionZip.h" />
     <ClInclude Include="resource.h" />
@@ -175,6 +176,7 @@
     <ClCompile Include="IAllocator.cpp" />
     <ClCompile Include="IBuffer.cpp" />
     <ClCompile Include="Model.cpp" />
+    <ClCompile Include="NaturalSortOrder.cpp" />
     <ClCompile Include="PageCollection.cpp" />
     <ClCompile Include="PageCollectionZip.cpp" />
     <ClCompile Include="SimpleBuffer.cpp" />
