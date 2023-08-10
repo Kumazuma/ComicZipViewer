@@ -379,12 +379,26 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 			const float scale = GetDPIScaleFactor();
 			auto& prevPos = *m_posSeekBarThumbDown;
 			const int diff = pos.x - prevPos.x;
+			const float percent = diff / ( ( m_panelRect.GetRight() - 15.f * scale - 2.5f * scale ) - ( m_panelRect.GetLeft() + 15.f * scale + 2.5f * scale ) );
 			const float gap = ( ( m_panelRect.GetRight() - 15.f * scale - 2.5f * scale ) - ( m_panelRect.GetLeft() + 15.f * scale + 2.5f * scale ) ) / wxGetApp().GetPageCount();
-			const int newValue = ( int ) floor(diff / gap);
+			const int newValue = ( int ) floor(percent * wxGetApp().GetPageCount());
 			if ( newValue != 0 )
 			{
-				prevPos.x -= prevPos.x - newValue * gap;
-				m_valueSeekBar = newValue;
+				prevPos.x += pos.x - newValue * gap;
+				char buff[ 80 ];
+				sprintf_s(buff , "prev: %d, diff: %d\n" , m_valueSeekBar , newValue);
+				OutputDebugStringA(buff);
+				m_valueSeekBar += newValue;
+				if ( m_valueSeekBar < 0 )
+				{
+					m_valueSeekBar = 0;
+				}
+				else if(m_valueSeekBar >= wxGetApp().GetPageCount())
+				{
+					m_valueSeekBar = wxGetApp().GetPageCount() - 1;
+				}
+					
+				Render();
 				auto scrollEvent = new wxScrollEvent(wxEVT_SCROLL_THUMBTRACK , GetId() , m_valueSeekBar , wxHORIZONTAL);
 				scrollEvent->SetEventObject(this);
 				QueueEvent(scrollEvent);
@@ -480,7 +494,7 @@ void ComicZipViewerFrame::SetSeekBarPos(int value)
 }
 
 BEGIN_EVENT_TABLE(ComicZipViewerFrame, wxFrame)
-	EVT_SIZE(ComicZipViewerFrame::OnSize)
+EVT_SIZE(ComicZipViewerFrame::OnSize)
 EVT_KEY_DOWN(ComicZipViewerFrame::OnKeyDown)
 EVT_KEY_UP(ComicZipViewerFrame::OnKeyUp)
 EVT_RIGHT_DOWN(ComicZipViewerFrame::OnRButtonDown)
