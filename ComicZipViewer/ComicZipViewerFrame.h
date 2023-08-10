@@ -15,6 +15,13 @@ struct Rect : public D2D1_RECT_F
 
 };
 
+enum class ImageSizeMode
+{
+	ORIGINAL,
+	FIT_PAGE,
+	FIT_WIDTH
+};
+
 class ComicZipViewerFrame: public wxFrame
 {
 	wxDECLARE_EVENT_TABLE();
@@ -25,10 +32,9 @@ public:
 	WXLRESULT MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam) override;
 	void ShowImage(const wxImage& image);
 	void SetSeekBarPos(int value);
-
+	void SetImageResizeMode(ImageSizeMode mode);
 protected:
 	void DoThaw() override;
-
 	void OnSize(wxSizeEvent& evt);
 	void OnKeyDown(wxKeyEvent& evt);
 	void OnKeyUp(wxKeyEvent& evt);
@@ -48,7 +54,10 @@ protected:
 	void OnDpiChanged(wxDPIChangedEvent& event);
 	void UpdateClientSize(const wxSize& sz);
 	void TryRender();
+	void GenerateIconBitmaps();
 private:
+	wxBitmapBundle m_iconFitPage;
+	wxBitmapBundle m_iconFitWidth;
 	ComPtr<ID3D11Device> m_d3dDevice;
 	ComPtr<ID3D11DeviceContext> m_d3dContext;
 	ComPtr<ID2D1Device1> m_d2dDevice;
@@ -59,9 +68,12 @@ private:
 	ComPtr<ID2D1SolidColorBrush> m_d2dBlackBrush;
 	ComPtr<ID2D1SolidColorBrush> m_d2dBlueBrush;
 	ComPtr<ID2D1SolidColorBrush> m_d2dWhiteBrush;
+	ComPtr<ID2D1SolidColorBrush> m_d2dBackGroundWhiteBrush;
 	ComPtr<ID2D1SolidColorBrush> m_d2dGrayBrush;
+	ComPtr<ID2D1StrokeStyle> m_d2dSimpleStrokeStyle;
 	ComPtr<ID2D1Bitmap1> m_bitmap;
 	ComPtr<ID2D1Layer> m_controlPanelLayer;
+	std::unordered_map<std::wstring_view, std::tuple<wxBitmapBundle, ComPtr<ID2D1Bitmap1>>> m_iconBitmapTable;
 	bool m_isSizing;
 	bool m_enterIsDown;
 	bool m_shownControlPanel;
@@ -75,6 +87,7 @@ private:
 	std::optional<wxPoint> m_offsetSeekbarThumbPos;
 	int m_valueSeekBar;
 	bool m_willRender;
+	ImageSizeMode m_imageSizeMode;
 };
 
 wxDECLARE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);
