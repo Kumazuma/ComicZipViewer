@@ -10,6 +10,9 @@ wxDEFINE_EVENT(wxEVT_HIDE_CONTROL_PANEL, wxCommandEvent);
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dxgi.lib")
 
+constexpr float SEEK_BAR_PADDING = 15.f;
+constexpr float SEEK_BAR_TRACK_HEIGHT = 5.f;
+constexpr float SEEK_BAR_THUMB_RADIUS = 10.f;
 ComicZipViewerFrame::ComicZipViewerFrame()
 	: m_isSizing(false)
 	, m_enterIsDown(false)
@@ -73,7 +76,11 @@ bool ComicZipViewerFrame::Create()
 	fullScreenDesc.Windowed = true;
 
 	ComPtr<IDXGIFactory2> dxgiFactory = nullptr;
-	CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, __uuidof(IDXGIFactory2),  &dxgiFactory);
+	UINT flags = 0;
+	#if !defined(NDEBUG)
+	flags = DXGI_CREATE_FACTORY_DEBUG;
+	#endif
+	CreateDXGIFactory2(flags, __uuidof(IDXGIFactory2),  &dxgiFactory);
 	dxgiFactory->CreateSwapChainForHwnd(m_d3dDevice.Get(), hWnd, &swapChainDesc1, &fullScreenDesc, nullptr, &m_swapChain);
 	m_swapChain->GetParent(__uuidof(IDXGIFactory2),  &dxgiFactory);
 	dxgiFactory->MakeWindowAssociation(hWnd, DXGI_MWA_NO_ALT_ENTER);
@@ -95,6 +102,7 @@ bool ComicZipViewerFrame::Create()
 	hRet = m_d2dContext->CreateSolidColorBrush(D2D1::ColorF( 0.f, 0.47f , 0.83f) , &m_d2dBlueBrush);
 	hRet = m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(1.f , 1.f , 1.f) , &m_d2dWhiteBrush);
 	hRet = m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(0.5f , 0.5f , 0.5f) , &m_d2dGrayBrush);
+	hRet = m_d2dContext->CreateLayer(&m_controlPanelLayer);
 	m_d2dContext->SetTarget(m_targetBitmap.Get());
 	return true;
 }
@@ -259,16 +267,20 @@ void ComicZipViewerFrame::Render()
 	{
 		const float scale = GetDPIScaleFactor();
 		const auto& size = m_clientSize;
-		m_d2dContext->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect(), nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE, D2D1::IdentityMatrix(), m_alphaControlPanel), nullptr);
-		m_d2dContext->FillRectangle(D2D1::RectF(m_panelRect.GetLeft(), m_panelRect.GetTop(), m_panelRect.GetRight(), m_panelRect.GetBottom()), m_d2dBlackBrush.Get());
-		m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(m_panelRect.GetLeft() + 15.f * scale , m_panelRect.GetTop() + 15.f * scale , m_panelRect.GetRight() - 15.f * scale , m_panelRect.GetTop() + 15.f * scale + 5.f * scale) , 2.5f * scale , 2.5f * scale) , m_d2dGrayBrush.Get());
+		const Rect& seekBarRect = m_seekBarRect;
+		const float seekBarX = m_panelRect.left + SEEK_BAR_PADDING * scale;
+		const float seekBarWidth = m_panelRect.GetWidth() -  SEEK_BAR_PADDING * 2 * scale;
+		m_d2dContext->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect(), nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE, D2D1::IdentityMatrix(), m_alphaControlPanel), m_controlPanelLayer.Get());
+		m_d2dContext->FillRectangle(m_panelRect, m_d2dBlackBrush.Get());
+		m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(seekBarRect, SEEK_BAR_TRACK_HEIGHT * 0.5f * scale , SEEK_BAR_TRACK_HEIGHT * 0.5f * scale) , m_d2dGrayBrush.Get());
 		if( wxGetApp().GetPageCount() != 0 )
 		{
 			const float percent = m_valueSeekBar / ( float ) wxGetApp().GetPageCount();
-			const float bar = ( ( m_panelRect.GetRight() - 15.f * scale - 2.5f * scale ) - ( m_panelRect.GetLeft() + 15.f * scale + 2.5f * scale ) ) * percent + 2.5f * scale + m_panelRect.GetLeft() + 15.f * scale;
-			m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(D2D1::RectF(m_panelRect.GetLeft() + 15.f * scale , m_panelRect.GetTop() + 15.f * scale , bar + 2.5f * scale , m_panelRect.GetTop() + 15.f * scale + 5.f * scale) , 2.5f * scale , 2.5f * scale) , m_d2dBlueBrush.Get());
-			m_d2dContext->FillEllipse(D2D1::Ellipse(D2D1::Point2F(bar , m_panelRect.GetTop() + 15.f * scale + 2.5f * scale) , 10.f * scale , 10.f * scale) , m_d2dWhiteBrush.Get());
-			m_d2dContext->FillEllipse(D2D1::Ellipse(D2D1::Point2F(bar , m_panelRect.GetTop() + 15.f * scale + 2.5f * scale) , 5.0f * scale , 5.0f * scale) , m_d2dBlueBrush.Get());
+			const float bar = seekBarRect.GetWidth() * percent + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale + seekBarRect.left;
+			const float thumbCenterY = seekBarRect.top + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
+			m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(seekBarRect, SEEK_BAR_TRACK_HEIGHT * 0.5f * scale , SEEK_BAR_TRACK_HEIGHT * 0.5f * scale) , m_d2dBlueBrush.Get());
+			m_d2dContext->FillEllipse(D2D1::Ellipse(D2D1::Point2F(bar, thumbCenterY), SEEK_BAR_THUMB_RADIUS * scale , SEEK_BAR_THUMB_RADIUS * scale) , m_d2dWhiteBrush.Get());
+			m_d2dContext->FillEllipse(D2D1::Ellipse(D2D1::Point2F(bar, thumbCenterY), 5.0f * scale , 5.0f * scale) , m_d2dBlueBrush.Get());
 		}
 
 		m_d2dContext->PopLayer();
@@ -331,7 +343,7 @@ void ComicZipViewerFrame::OnShowControlPanel(wxCommandEvent& event)
 		const int64_t diff = current - latestTick;
 		latestTick = current;
 		float delta = ((diff * 4096ll) / frequency) * ( 1.f / 4096.f);
-		m_alphaControlPanel += delta * 48.f;
+		m_alphaControlPanel += delta * 40.f;
 
 		wxYieldIfNeeded();
 	}
@@ -355,7 +367,7 @@ void ComicZipViewerFrame::OnHideControlPanel(wxCommandEvent& event)
 		const int64_t diff = current - latestTick;
 		latestTick = current;
 		float delta = ((diff * 4096ll) / frequency) * ( 1.f / 4096.f);
-		m_alphaControlPanel -= delta * 48.f;
+		m_alphaControlPanel -= delta * 40.f;
 
 		wxYieldIfNeeded();
 	}
@@ -379,11 +391,12 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 	{
 		if(evt.LeftIsDown() )
 		{
+			const Rect& seekBarRect = m_seekBarRect;
 			const float scale = GetDPIScaleFactor();
 			auto& offset = *m_offsetSeekbarThumbPos;
 			const int x = pos.x - offset.x;
-			const float gap = ( ( m_panelRect.GetRight() - 15.f * scale - 2.5f * scale ) - ( m_panelRect.GetLeft() + 15.f * scale + 2.5f * scale ) ) / wxGetApp().GetPageCount();
-			const int value = ( x - ( m_panelRect.GetLeft() + 15.f * scale + 2.5f * scale ) ) / gap;
+			const float gap = seekBarRect.GetWidth() / wxGetApp().GetPageCount();
+			const int value = ( x - seekBarRect.left ) / gap;
 			if ( value != m_valueSeekBar )
 			{
 				char buff[ 80 ];
@@ -412,7 +425,8 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 		m_offsetSeekbarThumbPos = std::nullopt;
 	}
 
-	if(m_panelRect.Contains(pos))
+	if(m_panelRect.left <= pos.x && pos.x <= m_panelRect.right
+		&& m_panelRect.top <= pos.y && pos.y <= m_panelRect.bottom)
 	{
 		if(!m_shownControlPanel)
 		{
@@ -441,11 +455,12 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 	if ( pageCount == 0 )
 		return;
 
+	const Rect& seekBarRect = m_seekBarRect;
 	const float scale = GetDPIScaleFactor();
-	const float percent = m_valueSeekBar / ( float ) pageCount;
-	const float x = ( ( m_panelRect.GetRight() - 15.f * scale - 2.5f * scale ) - ( m_panelRect.GetLeft() + 15.f * scale + 2.5f * scale ) ) * percent + 2.5f * scale + m_panelRect.GetLeft() + 15.f * scale;
-	const float y = m_panelRect.GetTop() + 15.f * scale + 2.5f * scale;
-	const float radius = 10.f * scale;
+	const float percent = (float)m_valueSeekBar / ( float ) pageCount;
+	const float x = seekBarRect.GetWidth() * percent + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale + seekBarRect.left;
+	const float y = seekBarRect.top + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
+	const float radius = SEEK_BAR_THUMB_RADIUS * scale;
 	const wxPoint pos = evt.GetPosition();
 	const float diffX = pos.x - x;
 	const float diffY = pos.y - y;
@@ -474,6 +489,7 @@ void ComicZipViewerFrame::UpdateClientSize(const wxSize& sz)
 {
 	m_clientSize = sz;
 	const float scale = GetDPIScaleFactor();
+	static constexpr float PADDING_CONTROL_PANEL = 5.f;
 	const float xywh[ 4 ]
 	{
 		5 * scale,
@@ -482,10 +498,14 @@ void ComicZipViewerFrame::UpdateClientSize(const wxSize& sz)
 		150 * scale
 	};
 
-	m_panelRect.m_x = xywh[ 0 ];
-	m_panelRect.m_y = xywh[ 1 ];
-	m_panelRect.m_width = xywh[ 2 ];
-	m_panelRect.m_height = xywh[ 3 ];
+	m_panelRect.left = PADDING_CONTROL_PANEL * scale;
+	m_panelRect.right = sz.x - PADDING_CONTROL_PANEL * 2 * scale;
+	m_panelRect.top = sz.y - (PADDING_CONTROL_PANEL + 150.f) * scale;
+	m_panelRect.bottom = sz.y - PADDING_CONTROL_PANEL * scale;
+	m_seekBarRect.left = m_panelRect.left + SEEK_BAR_PADDING * scale;
+	m_seekBarRect.right = m_panelRect.right - SEEK_BAR_PADDING * scale;
+	m_seekBarRect.top = m_panelRect.top + SEEK_BAR_PADDING * scale;
+	m_seekBarRect.bottom = m_seekBarRect.top + SEEK_BAR_TRACK_HEIGHT * scale;
 }
 
 void ComicZipViewerFrame::TryRender()
