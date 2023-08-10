@@ -4,15 +4,15 @@
 class ComicZipViewerFrame;
 class View: public wxEvtHandler
 {
-    DECLARE_EVENT_TABLE();
+	DECLARE_EVENT_TABLE();
 public:
-    View();
-    void Show();
-    
+	View();
+	void Show();
+	
 protected:
-    void OnMenu(wxCommandEvent& evt);
+	void OnMenu(wxCommandEvent& evt);
 	void OnClose(wxCloseEvent& evt);
-
+	void OnKeyDown(wxKeyEvent& evt);
 private:
-    ComicZipViewerFrame* m_pFrame;
+	ComicZipViewerFrame* m_pFrame;
 };
