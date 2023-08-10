@@ -17,6 +17,9 @@ public:
 	wxImage GetDecodedImage(uint32_t idx);
 	const wxString& GetCurrentPageName() const;
 	int GetCurrentPageNumber() const;
+	void MovePrevPage();
+	void MoveNextPage();
+	void MovePage(int idx);
 private:
 	View* m_pView;
 	Model* m_pModel;

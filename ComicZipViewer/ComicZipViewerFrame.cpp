@@ -1,5 +1,7 @@
 #include "framework.h"
 #include "ComicZipViewerFrame.h"
+#include "ComicZipViewer.h"
+#include <wx/bitmap.h>
 
 wxDEFINE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);
 wxDEFINE_EVENT(wxEVT_HIDE_CONTROL_PANEL, wxCommandEvent);
@@ -8,22 +10,32 @@ wxDEFINE_EVENT(wxEVT_HIDE_CONTROL_PANEL, wxCommandEvent);
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dxgi.lib")
 
+constexpr float SEEK_BAR_PADDING = 15.f;
+constexpr float SEEK_BAR_TRACK_HEIGHT = 5.f;
+constexpr float SEEK_BAR_THUMB_RADIUS = 10.f;
 ComicZipViewerFrame::ComicZipViewerFrame()
 	: m_isSizing(false)
 	, m_enterIsDown(false)
 	, m_pContextMenu(nullptr)
 	, m_alphaControlPanel(0.f)
+	, m_shownControlPanel(false)
+	, m_offsetSeekbarThumbPos()
+	, m_valueSeekBar()
+	, m_willRender(false)
 {
 }
 
 ComicZipViewerFrame::~ComicZipViewerFrame()
 {
+	DeletePendingEvents();
+	ClearEventHashTable();
 	delete m_pContextMenu;
 }
 
 bool ComicZipViewerFrame::Create()
 {
 	auto ret = wxFrame::Create(nullptr, wxID_ANY, wxS("ComicZipViewer"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE | wxWANTS_CHARS);
+	UpdateClientSize(GetClientSize());
 	m_pContextMenu = new wxMenu();
 	m_pContextMenu->Append(wxID_OPEN, wxS("&Open"));
 	m_pContextMenu->Append(wxID_CLOSE, wxS("&Close"));
@@ -31,26 +43,33 @@ bool ComicZipViewerFrame::Create()
 	{
 		return false;
 	}
-
+	wxBitmapBundle a;
 	HRESULT hRet;
 	HWND hWnd = GetHWND();
+	ComPtr<IDXGIFactory2> dxgiFactory = nullptr;
+	UINT flags = 0;
+	UINT d3d11Flag = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+	#if !defined(NDEBUG)
+	flags = DXGI_CREATE_FACTORY_DEBUG;
+	d3d11Flag = d3d11Flag | D3D11_CREATE_DEVICE_DEBUG;
+	#endif
+	CreateDXGIFactory2(flags, __uuidof(IDXGIFactory2),  &dxgiFactory);
+
 	D3D_FEATURE_LEVEL featureLevel;
-	hRet = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0, D3D11_SDK_VERSION, &m_d3dDevice, &featureLevel, &m_d3dContext);
+	hRet = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, d3d11Flag, nullptr, 0, D3D11_SDK_VERSION, &m_d3dDevice, &featureLevel, &m_d3dContext);
 	if(FAILED(hRet))
 	{
 		wxLogError(wxS("Failed to create d3d device"));
 		return false;
 	}
-
-	auto clientSize = GetClientSize();
-
+	
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc1{};
 	swapChainDesc1.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
 	swapChainDesc1.BufferCount = 2;
 	swapChainDesc1.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_UNORDERED_ACCESS;
 	swapChainDesc1.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	swapChainDesc1.Height = clientSize.GetHeight();
-	swapChainDesc1.Width = clientSize.GetWidth();
+	swapChainDesc1.Height = m_clientSize.GetHeight();
+	swapChainDesc1.Width = m_clientSize.GetWidth();
 	swapChainDesc1.SampleDesc.Count = 1;
 	swapChainDesc1.SampleDesc.Quality = 0;
 	swapChainDesc1.Scaling = DXGI_SCALING_STRETCH;
@@ -63,12 +82,10 @@ bool ComicZipViewerFrame::Create()
 	fullScreenDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
 	fullScreenDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
 	fullScreenDesc.Windowed = true;
-
-	ComPtr<IDXGIFactory2> dxgiFactory = nullptr;
-	CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG, __uuidof(IDXGIFactory2),  &dxgiFactory);
 	dxgiFactory->CreateSwapChainForHwnd(m_d3dDevice.Get(), hWnd, &swapChainDesc1, &fullScreenDesc, nullptr, &m_swapChain);
 	m_swapChain->GetParent(__uuidof(IDXGIFactory2),  &dxgiFactory);
 	dxgiFactory->MakeWindowAssociation(hWnd, DXGI_MWA_NO_ALT_ENTER);
+
 	ComPtr<IDXGISurface> surface;
 	ComPtr<IDXGIDevice> dxgiDevice;
 	m_d3dDevice.As(&dxgiDevice);
@@ -83,10 +100,12 @@ bool ComicZipViewerFrame::Create()
 		D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW, D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)),
 		&m_targetBitmap);
 
-	hRet = m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(1.f, 0.f, 0.f), &m_d2dBrush);
-
+	hRet = m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(0.f, 0.f, 0.f, 0.75f), &m_d2dBlackBrush);
+	hRet = m_d2dContext->CreateSolidColorBrush(D2D1::ColorF( 0.f, 0.47f , 0.83f) , &m_d2dBlueBrush);
+	hRet = m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(1.f , 1.f , 1.f) , &m_d2dWhiteBrush);
+	hRet = m_d2dContext->CreateSolidColorBrush(D2D1::ColorF(0.5f , 0.5f , 0.5f) , &m_d2dGrayBrush);
+	hRet = m_d2dContext->CreateLayer(&m_controlPanelLayer);
 	m_d2dContext->SetTarget(m_targetBitmap.Get());
-	ResizeSwapChain(GetClientSize());
 	return true;
 }
 
@@ -99,7 +118,8 @@ WXLRESULT ComicZipViewerFrame::MSWWindowProc(WXUINT message, WXWPARAM wParam, WX
 		break;
 	case WM_EXITSIZEMOVE:
 		m_isSizing = false;
-		ResizeSwapChain(GetClientSize());
+		UpdateClientSize(GetClientSize());
+		ResizeSwapChain(m_clientSize);
 		Render();
 		break;
 
@@ -119,31 +139,52 @@ WXLRESULT ComicZipViewerFrame::MSWWindowProc(WXUINT message, WXWPARAM wParam, WX
 void ComicZipViewerFrame::ShowImage(const wxImage& image)
 {
 	auto size = image.GetSize();
-	HRESULT hr;
-	ComPtr<ID3D11Texture2D> texture2d;
-	D3D11_TEXTURE2D_DESC texture2dDesc{};
-	texture2dDesc.ArraySize = 1;
-	texture2dDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	texture2dDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	texture2dDesc.MipLevels = 1;
-	texture2dDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	texture2dDesc.Usage = D3D11_USAGE_DYNAMIC;
-	texture2dDesc.SampleDesc.Count = 1;
-	texture2dDesc.Width = size.GetWidth();
-	texture2dDesc.Height = size.GetHeight();
-	hr = m_d3dDevice->CreateTexture2D(&texture2dDesc, nullptr, &texture2d);
-	ComPtr<IDXGISurface> surface;
-	ComPtr<ID2D1Bitmap1> bitmap;
-	hr = texture2d.As(&surface);
-	hr = m_d2dContext->CreateBitmapFromDxgiSurface(surface.Get(), D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_NONE, D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)), &bitmap);
-	if(FAILED(hr))
+	bool needCreationBitmap = m_bitmap == nullptr;
+	if(!needCreationBitmap)
 	{
-		wxLogError(wxS("Failed to create D2D Bitmap"));
-		return;
+		auto bitmapSize = m_bitmap->GetPixelSize();
+		needCreationBitmap = size.x != bitmapSize.width || size.y != bitmapSize.height;
+		if(needCreationBitmap)
+		{
+			m_bitmap.Reset();
+		}
 	}
 
-	D2D1_MAPPED_RECT mappedRect;
-	bitmap->Map(D2D1_MAP_OPTIONS_DISCARD | D2D1_MAP_OPTIONS_WRITE, &mappedRect);
+	HRESULT hr;
+	ComPtr<ID2D1Bitmap1> bitmap;
+	ComPtr<ID3D11Texture2D> texture2d;
+	ComPtr<IDXGISurface> surface;
+	if(needCreationBitmap)
+	{
+		D3D11_TEXTURE2D_DESC texture2dDesc{};
+		texture2dDesc.ArraySize = 1;
+		texture2dDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		texture2dDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		texture2dDesc.MipLevels = 1;
+		texture2dDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		texture2dDesc.Usage = D3D11_USAGE_DYNAMIC;
+		texture2dDesc.SampleDesc.Count = 1;
+		texture2dDesc.Width = size.GetWidth();
+		texture2dDesc.Height = size.GetHeight();
+		hr = m_d3dDevice->CreateTexture2D(&texture2dDesc, nullptr, &texture2d);
+		hr = texture2d.As(&surface);
+		hr = m_d2dContext->CreateBitmapFromDxgiSurface(surface.Get(), D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_NONE, D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)), &bitmap);
+		if(FAILED(hr))
+		{
+			wxLogError(wxS("Failed to create D2D Bitmap"));
+			return;
+		}
+	}
+	else
+	{
+		bitmap = m_bitmap;
+		bitmap->GetSurface(&surface);
+		hr = surface.As(&texture2d);
+		assert(texture2d != nullptr);
+	}
+
+	D3D11_MAPPED_SUBRESOURCE mappedRect;
+	m_d3dContext->Map(texture2d.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedRect);
 	const wxByte* const rowData = image.GetData();
 	const wxByte* const alpha = image.GetAlpha();
 	const bool hasAlpha = image.HasAlpha();
@@ -154,14 +195,14 @@ void ComicZipViewerFrame::ShowImage(const wxImage& image)
 			const int idx = row * 3 * size.GetWidth() + cols * 3;
 			uint32_t rgba = 0;
 			rgba = rowData[idx] | rowData[idx + 1] << 8 | rowData[idx + 2] << 16 | (hasAlpha ? alpha[row * size.GetWidth() + cols] : 0xFF) << 24;
-			*reinterpret_cast<uint32_t*>(mappedRect.bits + row * mappedRect.pitch + cols * 4) = rgba;
+			*reinterpret_cast<uint32_t*>((uint8_t*)mappedRect.pData + row * mappedRect.RowPitch + cols * 4) = rgba;
 		}
 	}
 
-	bitmap->Unmap();
+	m_d3dContext->Unmap(texture2d.Get(), 0);
 	m_bitmap = bitmap;
 	m_imageSize = size;
-	Render();
+	TryRender();
 }
 
 void ComicZipViewerFrame::OnSize(wxSizeEvent& evt)
@@ -169,7 +210,8 @@ void ComicZipViewerFrame::OnSize(wxSizeEvent& evt)
 	if(m_isSizing)
 		return;
 
-	ResizeSwapChain(evt.GetSize());
+	UpdateClientSize(GetClientSize());
+	ResizeSwapChain(m_clientSize);
 	Render();
 }
 
@@ -217,6 +259,7 @@ void ComicZipViewerFrame::OnRButtonUp(wxMouseEvent& evt)
 
 void ComicZipViewerFrame::ResizeSwapChain(const wxSize clientRect)
 {
+	
 	HRESULT hRet;
 	ComPtr<IDXGISurface> surface;
 	m_d2dContext->SetTarget(nullptr);
@@ -229,11 +272,14 @@ void ComicZipViewerFrame::ResizeSwapChain(const wxSize clientRect)
 		&m_targetBitmap);
 
 	m_d2dContext->SetTarget(m_targetBitmap.Get());
-
 }
 
 void ComicZipViewerFrame::Render()
 {
+	if(IsFrozen())
+		return;
+
+	m_willRender = false;
 	HRESULT hRet;
 	m_d2dContext->BeginDraw();
 	m_d2dContext->Clear(D2D1::ColorF(1.f, 0.f, 1.f, 1.f));
@@ -244,12 +290,27 @@ void ComicZipViewerFrame::Render()
 
 	if(m_alphaControlPanel > 0.f)
 	{
-		auto size = GetClientSize();
-		m_d2dContext->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect(), nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE, D2D1::IdentityMatrix(), m_alphaControlPanel), nullptr);
-		m_d2dContext->FillRectangle(D2D1::RectF(0.f, size.GetHeight() / 2.f, size.GetWidth(), size.GetHeight()), m_d2dBrush.Get());
+		const float scale = GetDPIScaleFactor();
+		const auto& size = m_clientSize;
+		const Rect& seekBarRect = m_seekBarRect;
+		const float seekBarX = m_panelRect.left + SEEK_BAR_PADDING * scale;
+		const float seekBarWidth = m_panelRect.GetWidth() -  SEEK_BAR_PADDING * 2 * scale;
+		m_d2dContext->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect(), nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE, D2D1::IdentityMatrix(), m_alphaControlPanel), m_controlPanelLayer.Get());
+		m_d2dContext->FillRectangle(m_panelRect, m_d2dBlackBrush.Get());
+		m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(seekBarRect, SEEK_BAR_TRACK_HEIGHT * 0.5f * scale , SEEK_BAR_TRACK_HEIGHT * 0.5f * scale) , m_d2dGrayBrush.Get());
+		if( wxGetApp().GetPageCount() != 0 )
+		{
+			const float percent = m_valueSeekBar / ( float ) wxGetApp().GetPageCount();
+			const float bar = seekBarRect.GetWidth() * percent + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale + seekBarRect.left;
+			const float thumbCenterY = seekBarRect.top + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
+			m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(seekBarRect, SEEK_BAR_TRACK_HEIGHT * 0.5f * scale , SEEK_BAR_TRACK_HEIGHT * 0.5f * scale) , m_d2dBlueBrush.Get());
+			m_d2dContext->FillEllipse(D2D1::Ellipse(D2D1::Point2F(bar, thumbCenterY), SEEK_BAR_THUMB_RADIUS * scale , SEEK_BAR_THUMB_RADIUS * scale) , m_d2dWhiteBrush.Get());
+			m_d2dContext->FillEllipse(D2D1::Ellipse(D2D1::Point2F(bar, thumbCenterY), 5.0f * scale , 5.0f * scale) , m_d2dBlueBrush.Get());
+		}
+
 		m_d2dContext->PopLayer();
 	}
-	
+
 	hRet = m_d2dContext->EndDraw();
 	hRet = m_swapChain->Present(0, 0);
 }
@@ -261,55 +322,133 @@ void ComicZipViewerFrame::Fullscreen()
 	m_swapChain->GetContainingOutput(&output);
 	DXGI_OUTPUT_DESC desc{};
 	output->GetDesc(&desc);
-	RECT& coordenates = desc.DesktopCoordinates;
-	ResizeSwapChain(wxSize(coordenates.right - coordenates.left, coordenates.bottom - coordenates.top));
+	const RECT& coordinates = desc.DesktopCoordinates;
+	UpdateClientSize(wxSize(coordinates.right - coordinates.left , coordinates.bottom - coordinates.top));
+	ResizeSwapChain(m_clientSize);
 	Render();
 }
 
 void ComicZipViewerFrame::RestoreFullscreen()
 {
 	ShowFullScreen(false);
-	ResizeSwapChain(GetClientSize());
+	UpdateClientSize(GetClientSize());
+	ResizeSwapChain(m_clientSize);
 	Render();
+}
+
+inline int64_t GetTickFrequency()
+{
+	LARGE_INTEGER largeInteger{};
+	QueryPerformanceFrequency(&largeInteger);
+	return largeInteger.QuadPart;
+}
+
+inline int64_t GetTick()
+{
+	LARGE_INTEGER largeInteger{};
+	QueryPerformanceCounter(&largeInteger);
+	return largeInteger.QuadPart;
 }
 
 void ComicZipViewerFrame::OnShowControlPanel(wxCommandEvent& event)
 {
-	m_alphaControlPanel = 0.f;
-	while(m_shownControlPanel)
+	const int64_t frequency = GetTickFrequency();
+	int64_t latestTick = GetTick();
+	while(m_shownControlPanel && !IsBeingDeleted())
 	{
-		wxYield();
 		if(m_alphaControlPanel >= 1.f)
 		{
 			m_alphaControlPanel = 1.f;
+			Render();
 			break;
 		}
 
 		Render();
-		m_alphaControlPanel += 0.00025f;
+		int64_t current = GetTick();
+		const int64_t diff = current - latestTick;
+		latestTick = current;
+		float delta = ((diff * 4096ll) / frequency) * ( 1.f / 4096.f);
+		m_alphaControlPanel += delta * 40.f;
+
+		wxYieldIfNeeded();
 	}
 }
 
 void ComicZipViewerFrame::OnHideControlPanel(wxCommandEvent& event)
 {
-	while(!m_shownControlPanel)
+	const int64_t frequency = GetTickFrequency();
+	int64_t latestTick = GetTick();
+	while(!m_shownControlPanel && !IsBeingDeleted())
 	{
-		wxYield();
 		if (m_alphaControlPanel <= 0.f)
 		{
 			m_alphaControlPanel = 0.f;
+			Render();
 			break;
 		}
 
 		Render();
-		m_alphaControlPanel -= 0.00025f;
+		int64_t current = GetTick();
+		const int64_t diff = current - latestTick;
+		latestTick = current;
+		float delta = ((diff * 4096ll) / frequency) * ( 1.f / 4096.f);
+		m_alphaControlPanel -= delta * 40.f;
+
+		wxYieldIfNeeded();
+	}
+}
+
+void ComicZipViewerFrame::OnMouseLeave(wxMouseEvent& evt)
+{
+	if(m_shownControlPanel)
+	{
+		m_shownControlPanel = false;
+		auto evt = new wxCommandEvent(wxEVT_HIDE_CONTROL_PANEL);
+		evt->SetEventObject(this);
+		QueueEvent(evt);
 	}
 }
 
 void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 {
-	auto size = GetClientSize();
-	if(evt.GetPosition().y > size.y / 2)
+	auto pos = evt.GetPosition();
+	if( m_offsetSeekbarThumbPos.has_value())
+	{
+		if(evt.LeftIsDown() )
+		{
+			const Rect& seekBarRect = m_seekBarRect;
+			const float scale = GetDPIScaleFactor();
+			auto& offset = *m_offsetSeekbarThumbPos;
+			const int x = pos.x - offset.x;
+			const float gap = seekBarRect.GetWidth() / wxGetApp().GetPageCount();
+			const int value = ( x - seekBarRect.left ) / gap;
+			if ( value != m_valueSeekBar )
+			{
+				m_valueSeekBar = value;
+				if ( m_valueSeekBar < 0 )
+				{
+					m_valueSeekBar = 0;
+				}
+				else if(m_valueSeekBar >= wxGetApp().GetPageCount())
+				{
+					m_valueSeekBar = wxGetApp().GetPageCount() - 1;
+				}
+
+				TryRender();
+				auto scrollEvent = wxScrollEvent(wxEVT_SCROLL_THUMBTRACK , wxID_ANY , m_valueSeekBar , wxHORIZONTAL);
+				scrollEvent.SetEventObject(this);
+				scrollEvent.ResumePropagation(wxEVENT_PROPAGATE_MAX);
+				ProcessWindowEvent(scrollEvent);
+			}
+
+			return;
+		}
+
+		m_offsetSeekbarThumbPos = std::nullopt;
+	}
+
+	if(m_panelRect.left <= pos.x && pos.x <= m_panelRect.right
+		&& m_panelRect.top <= pos.y && pos.y <= m_panelRect.bottom)
 	{
 		if(!m_shownControlPanel)
 		{
@@ -331,17 +470,127 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 	}
 }
 
-void ComicZipViewerFrame::OnShown(wxShowEvent& evt)
+void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 {
+	m_offsetSeekbarThumbPos = std::nullopt;
+	const auto pageCount = wxGetApp().GetPageCount();
+	if ( pageCount == 0 )
+		return;
+
+	const wxPoint pos = evt.GetPosition();
+	const float scale = GetDPIScaleFactor();
+	const Rect& seekBarRect = m_seekBarRect;
+	Rect seekBarJumpHitRect = seekBarRect;
+	seekBarJumpHitRect.top -= SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
+	seekBarJumpHitRect.bottom += SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
+	const float y = seekBarRect.top + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
+	const float diffY = pos.y - y;
+	if(seekBarJumpHitRect.left <= pos.x && pos.x <= seekBarJumpHitRect.right
+		&& seekBarJumpHitRect.top <= pos.y && pos.y <= seekBarJumpHitRect.bottom)
+	{
+		const float gap = seekBarRect.GetWidth() / pageCount;
+		const int value = ( pos.x - seekBarRect.left ) / gap;
+		const float x = seekBarRect.GetWidth() * ((float)value / pageCount) + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale + seekBarRect.left;
+		m_offsetSeekbarThumbPos = wxPoint(pos.x - x , diffY);
+		if(m_valueSeekBar != value)
+		{
+			m_valueSeekBar = value;
+			TryRender();
+			auto scrollEvent = wxScrollEvent(wxEVT_SCROLL_THUMBTRACK , wxID_ANY , value , wxHORIZONTAL);
+			scrollEvent.SetEventObject(this);
+			scrollEvent.ResumePropagation(wxEVENT_PROPAGATE_MAX);
+			ProcessWindowEvent(scrollEvent);
+		}
+	}
+	else
+	{
+		const float percent = (float)m_valueSeekBar / ( float ) pageCount;
+		const float x = seekBarRect.GetWidth() * percent + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale + seekBarRect.left;
+		const float radius = SEEK_BAR_THUMB_RADIUS * scale;
+		const float diffX = pos.x - x;
+		if(diffX * diffX + diffY * diffY <= radius * radius)
+		{
+			m_offsetSeekbarThumbPos = wxPoint(diffX , diffY);
+		}
+	}
 }
 
-BEGIN_EVENT_TABLE(ComicZipViewerFrame, wxFrame)
+void ComicZipViewerFrame::OnLMouseUp(wxMouseEvent& evt)
+{
+	m_offsetSeekbarThumbPos = std::nullopt;
+}
+
+void ComicZipViewerFrame::OnShown(wxShowEvent& evt)
+{
+
+}
+
+void ComicZipViewerFrame::OnDpiChanged(wxDPIChangedEvent& event)
+{
+
+}
+
+void ComicZipViewerFrame::UpdateClientSize(const wxSize& sz)
+{
+	m_clientSize = sz;
+	const float scale = GetDPIScaleFactor();
+	static constexpr float PADDING_CONTROL_PANEL = 5.f;
+	const float xywh[ 4 ]
+	{
+		5 * scale,
+		sz.y - 5 * scale - 150 * scale,
+		sz.x - 10 * scale,
+		150 * scale
+	};
+
+	m_panelRect.left = PADDING_CONTROL_PANEL * scale;
+	m_panelRect.right = sz.x - PADDING_CONTROL_PANEL * 2 * scale;
+	m_panelRect.top = sz.y - (PADDING_CONTROL_PANEL + 150.f) * scale;
+	m_panelRect.bottom = sz.y - PADDING_CONTROL_PANEL * scale;
+	m_seekBarRect.left = m_panelRect.left + SEEK_BAR_PADDING * scale;
+	m_seekBarRect.right = m_panelRect.right - SEEK_BAR_PADDING * scale;
+	m_seekBarRect.top = m_panelRect.top + SEEK_BAR_PADDING * scale;
+	m_seekBarRect.bottom = m_seekBarRect.top + SEEK_BAR_TRACK_HEIGHT * scale;
+}
+
+void ComicZipViewerFrame::TryRender()
+{
+	if ( m_willRender )
+		return;
+
+	m_willRender = true;
+	CallAfter([this]()
+	{
+		if ( !m_willRender )
+			return;
+
+		Render();
+	});
+}
+
+void ComicZipViewerFrame::SetSeekBarPos(int value)
+{
+	m_valueSeekBar = value;
+	m_offsetSeekbarThumbPos = std::nullopt;
+	TryRender();
+}
+
+void ComicZipViewerFrame::DoThaw()
+{
+	wxFrame::DoThaw();
+	Render();
+}
+
+BEGIN_EVENT_TABLE(ComicZipViewerFrame , wxFrame)
 	EVT_SIZE(ComicZipViewerFrame::OnSize)
-EVT_KEY_DOWN(ComicZipViewerFrame::OnKeyDown)
-EVT_KEY_UP(ComicZipViewerFrame::OnKeyUp)
-EVT_RIGHT_DOWN(ComicZipViewerFrame::OnRButtonDown)
-EVT_RIGHT_UP(ComicZipViewerFrame::OnRButtonUp)
-EVT_MOTION(ComicZipViewerFrame::OnMouseMove)
-EVT_COMMAND(wxID_ANY, wxEVT_SHOW_CONTROL_PANEL, ComicZipViewerFrame::OnShowControlPanel)
-EVT_COMMAND(wxID_ANY, wxEVT_HIDE_CONTROL_PANEL, ComicZipViewerFrame::OnHideControlPanel)
+	EVT_KEY_DOWN(ComicZipViewerFrame::OnKeyDown)
+	EVT_KEY_UP(ComicZipViewerFrame::OnKeyUp)
+	EVT_RIGHT_DOWN(ComicZipViewerFrame::OnRButtonDown)
+	EVT_RIGHT_UP(ComicZipViewerFrame::OnRButtonUp)
+	EVT_LEFT_DOWN(ComicZipViewerFrame::OnLMouseDown)
+	EVT_LEFT_UP(ComicZipViewerFrame::OnLMouseUp)
+	EVT_MOTION(ComicZipViewerFrame::OnMouseMove)
+	EVT_LEAVE_WINDOW(ComicZipViewerFrame::OnMouseLeave)
+	EVT_COMMAND(wxID_ANY, wxEVT_SHOW_CONTROL_PANEL, ComicZipViewerFrame::OnShowControlPanel)
+	EVT_COMMAND(wxID_ANY, wxEVT_HIDE_CONTROL_PANEL, ComicZipViewerFrame::OnHideControlPanel)
 END_EVENT_TABLE()
