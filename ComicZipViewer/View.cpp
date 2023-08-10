@@ -54,7 +54,40 @@ void View::OnClose(wxCloseEvent& evt)
 	m_pFrame->Destroy();
 }
 
+void View::OnKeyDown(wxKeyEvent& evt)
+{
+	evt.Skip();
+	if ( evt.GetEventObject() != m_pFrame )
+		return;
+
+	auto& app = wxGetApp();
+	int latestPageNumber = app.GetCurrentPageNumber();
+	switch( evt.GetKeyCode() )
+	{
+	case WXK_LEFT:
+		app.MovePrevPage();
+		break;
+	case WXK_RIGHT:
+		app.MoveNextPage();
+		break;
+
+	default:
+		return;
+	}
+
+	if(app.GetCurrentPageNumber() == latestPageNumber)
+	{
+
+		return;
+	}
+
+	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+	m_pFrame->ShowImage(image);
+	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s") , app.GetCurrentPageName()));
+}
+
 BEGIN_EVENT_TABLE(View, wxEvtHandler)
 EVT_MENU(wxID_ANY, View::OnMenu)
 EVT_CLOSE(View::OnClose)
+EVT_KEY_DOWN(View::OnKeyDown)
 END_EVENT_TABLE()

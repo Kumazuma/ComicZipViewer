@@ -118,3 +118,21 @@ int ComicZipViewerApp::GetCurrentPageNumber() const
 {
 	return m_pModel->currentPageNumber;
 }
+
+void ComicZipViewerApp::MovePrevPage()
+{
+	if ( m_pModel->currentPageNumber == 1 || m_pModel->pageList.empty())
+		return;
+
+	m_pModel->currentPageNumber -= 1;
+	m_pModel->pageName = m_pModel->pageList[m_pModel->currentPageNumber - 1];
+}
+
+void ComicZipViewerApp::MoveNextPage()
+{
+	if ( m_pModel->pageList.size() == m_pModel->currentPageNumber || m_pModel->pageList.empty() )
+		return;
+
+	m_pModel->currentPageNumber += 1;
+	m_pModel->pageName = m_pModel->pageList[ m_pModel->currentPageNumber - 1 ];
+}
