@@ -8,6 +8,13 @@
 #include <dxgi1_3.h>
 #include <optional>
 
+struct Rect : public D2D1_RECT_F
+{
+	float GetWidth() const { return right - left; }
+	float GetHeight() const { return bottom - top; }
+
+};
+
 class ComicZipViewerFrame: public wxFrame
 {
 	wxDECLARE_EVENT_TABLE();
@@ -51,6 +58,7 @@ private:
 	ComPtr<ID2D1SolidColorBrush> m_d2dWhiteBrush;
 	ComPtr<ID2D1SolidColorBrush> m_d2dGrayBrush;
 	ComPtr<ID2D1Bitmap1> m_bitmap;
+	ComPtr<ID2D1Layer> m_controlPanelLayer;
 	bool m_isSizing;
 	bool m_enterIsDown;
 	bool m_shownControlPanel;
@@ -59,7 +67,8 @@ private:
 	wxMenu* m_pContextMenu;
 	wxSize m_imageSize;
 	wxSize m_clientSize;
-	wxRect2DDouble m_panelRect;
+	Rect m_panelRect;
+	Rect m_seekBarRect;
 	std::optional<wxPoint> m_offsetSeekbarThumbPos;
 	int m_valueSeekBar;
 	bool m_willRender;
