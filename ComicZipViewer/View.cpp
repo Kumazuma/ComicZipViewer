@@ -37,9 +37,11 @@ void View::OnMenu(wxCommandEvent& evt)
 			return;
 
 		wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+		m_pFrame->Freeze();
 		m_pFrame->ShowImage(image);
 		m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s"), app.GetCurrentPageName()));
 		m_pFrame->SetSeekBarPos(0);
+		m_pFrame->Thaw();
 	}
 	else if(eventId == wxID_CLOSE)
 	{
@@ -83,9 +85,11 @@ void View::OnKeyDown(wxKeyEvent& evt)
 	}
 
 	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+	m_pFrame->Freeze();
 	m_pFrame->ShowImage(image);
 	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s") , app.GetCurrentPageName()));
 	m_pFrame->SetSeekBarPos(app.GetCurrentPageNumber() - 1);
+	m_pFrame->Thaw();
 }
 
 void View::OnSeek(wxScrollEvent& evt)
@@ -93,8 +97,10 @@ void View::OnSeek(wxScrollEvent& evt)
 	auto& app = wxGetApp();
 	app.MovePage(evt.GetPosition() + 1);
 	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+	m_pFrame->Freeze();
 	m_pFrame->ShowImage(image);
 	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s") , app.GetCurrentPageName()));
+	m_pFrame->Thaw();
 }
 
 BEGIN_EVENT_TABLE(View , wxEvtHandler)

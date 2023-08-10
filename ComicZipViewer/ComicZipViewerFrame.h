@@ -25,7 +25,10 @@ public:
 	WXLRESULT MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam) override;
 	void ShowImage(const wxImage& image);
 	void SetSeekBarPos(int value);
+
 protected:
+	void DoThaw() override;
+
 	void OnSize(wxSizeEvent& evt);
 	void OnKeyDown(wxKeyEvent& evt);
 	void OnKeyUp(wxKeyEvent& evt);
