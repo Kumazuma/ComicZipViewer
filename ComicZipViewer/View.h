@@ -13,6 +13,7 @@ protected:
 	void OnMenu(wxCommandEvent& evt);
 	void OnClose(wxCloseEvent& evt);
 	void OnKeyDown(wxKeyEvent& evt);
+	void OnSeek(wxScrollEvent& evt);
 private:
 	ComicZipViewerFrame* m_pFrame;
 };

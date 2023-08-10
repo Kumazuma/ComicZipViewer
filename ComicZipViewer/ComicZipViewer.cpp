@@ -136,3 +136,15 @@ void ComicZipViewerApp::MoveNextPage()
 	m_pModel->currentPageNumber += 1;
 	m_pModel->pageName = m_pModel->pageList[ m_pModel->currentPageNumber - 1 ];
 }
+
+void ComicZipViewerApp::MovePage(int idx)
+{
+	if ( idx <= 0 )
+		return;
+
+	if ( m_pModel->pageList.size() <= idx )
+		return;
+
+	m_pModel->currentPageNumber = idx;
+	m_pModel->pageName = m_pModel->pageList[ m_pModel->currentPageNumber - 1 ];
+}
