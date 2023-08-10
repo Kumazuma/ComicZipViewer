@@ -1,5 +1,8 @@
 #include "framework.h"
 #include "ComicZipViewer.h"
+
+#include <wx/filename.h>
+
 #include "View.h"
 #include "Model.h"
 #include "NaturalSortOrder.h"
@@ -46,6 +49,49 @@ bool ComicZipViewerApp::OpenFile(const wxString& filePath)
 	m_pModel->pageList.clear();
 	m_pModel->currentPageNumber = 1;
 	m_pPageCollection->GetPageNames(&m_pModel->pageList);
+	auto it = m_pModel->pageList.begin();
+	while(it != m_pModel->pageList.end())
+	{
+		wxFileName fileName(*it);
+		auto ext = fileName.GetExt().Lower();
+		bool isImageFile = true;
+		do
+		{
+			if(ext == wxS("jpg"))
+				break;
+
+			if(ext == wxS("jpeg"))
+				break;
+
+			if(ext == wxS("jfif"))
+				break;
+
+			if(ext == wxS("png"))
+				break;
+
+			if(ext == wxS("gif"))
+				break;
+
+			isImageFile = false;
+		} while(false);
+
+		if(isImageFile)
+		{
+			it += 1;
+		}
+		else
+		{
+			it = m_pModel->pageList.erase(it);
+		}
+	}
+
+	if(m_pModel->pageList.empty())
+	{
+		delete m_pPageCollection;
+		m_pPageCollection = nullptr;
+		return false;
+	}
+
 	std::sort(m_pModel->pageList.begin(), m_pModel->pageList.end(), NaturalSortOrder{});
 	m_pModel->pageName = m_pModel->pageList.front();
 	return true;
