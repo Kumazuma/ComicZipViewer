@@ -37,8 +37,8 @@ bool ComicZipViewerFrame::Create()
 	auto ret = wxFrame::Create(nullptr, wxID_ANY, wxS("ComicZipViewer"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE | wxWANTS_CHARS);
 	UpdateClientSize(GetClientSize());
 	m_pContextMenu = new wxMenu();
-	m_pContextMenu->Append(wxID_OPEN, wxS("&Open"));
-	m_pContextMenu->Append(wxID_CLOSE, wxS("&Close"));
+	m_pContextMenu->Append(wxID_OPEN, wxS("Open(&O)"));
+	m_pContextMenu->Append(wxID_CLOSE, wxS("Close(&C)"));
 	if (!ret)
 	{
 		return false;
@@ -363,13 +363,12 @@ void ComicZipViewerFrame::OnShowControlPanel(wxCommandEvent& event)
 			break;
 		}
 
-		Render();
 		int64_t current = GetTick();
 		const int64_t diff = current - latestTick;
 		latestTick = current;
 		float delta = ((diff * 4096ll) / frequency) * ( 1.f / 4096.f);
 		m_alphaControlPanel += delta * 40.f;
-
+		Render();
 		wxYieldIfNeeded();
 	}
 }
@@ -387,13 +386,12 @@ void ComicZipViewerFrame::OnHideControlPanel(wxCommandEvent& event)
 			break;
 		}
 
-		Render();
 		int64_t current = GetTick();
 		const int64_t diff = current - latestTick;
 		latestTick = current;
 		float delta = ((diff * 4096ll) / frequency) * ( 1.f / 4096.f);
 		m_alphaControlPanel -= delta * 40.f;
-
+		Render();
 		wxYieldIfNeeded();
 	}
 }
