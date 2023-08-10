@@ -35,6 +35,7 @@ ComicZipViewerFrame::~ComicZipViewerFrame()
 bool ComicZipViewerFrame::Create()
 {
 	auto ret = wxFrame::Create(nullptr, wxID_ANY, wxS("ComicZipViewer"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE | wxWANTS_CHARS);
+	UpdateClientSize(GetClientSize());
 	m_pContextMenu = new wxMenu();
 	m_pContextMenu->Append(wxID_OPEN, wxS("&Open"));
 	m_pContextMenu->Append(wxID_CLOSE, wxS("&Close"));
@@ -45,16 +46,23 @@ bool ComicZipViewerFrame::Create()
 	wxBitmapBundle a;
 	HRESULT hRet;
 	HWND hWnd = GetHWND();
+	ComPtr<IDXGIFactory2> dxgiFactory = nullptr;
+	UINT flags = 0;
+	UINT d3d11Flag = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+	#if !defined(NDEBUG)
+	flags = DXGI_CREATE_FACTORY_DEBUG;
+	d3d11Flag = d3d11Flag | D3D11_CREATE_DEVICE_DEBUG;
+	#endif
+	CreateDXGIFactory2(flags, __uuidof(IDXGIFactory2),  &dxgiFactory);
+
 	D3D_FEATURE_LEVEL featureLevel;
-	hRet = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0, D3D11_SDK_VERSION, &m_d3dDevice, &featureLevel, &m_d3dContext);
+	hRet = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, d3d11Flag, nullptr, 0, D3D11_SDK_VERSION, &m_d3dDevice, &featureLevel, &m_d3dContext);
 	if(FAILED(hRet))
 	{
 		wxLogError(wxS("Failed to create d3d device"));
 		return false;
 	}
-
-	UpdateClientSize(GetClientSize());
-
+	
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc1{};
 	swapChainDesc1.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
 	swapChainDesc1.BufferCount = 2;
@@ -74,16 +82,10 @@ bool ComicZipViewerFrame::Create()
 	fullScreenDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
 	fullScreenDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
 	fullScreenDesc.Windowed = true;
-
-	ComPtr<IDXGIFactory2> dxgiFactory = nullptr;
-	UINT flags = 0;
-	#if !defined(NDEBUG)
-	flags = DXGI_CREATE_FACTORY_DEBUG;
-	#endif
-	CreateDXGIFactory2(flags, __uuidof(IDXGIFactory2),  &dxgiFactory);
 	dxgiFactory->CreateSwapChainForHwnd(m_d3dDevice.Get(), hWnd, &swapChainDesc1, &fullScreenDesc, nullptr, &m_swapChain);
 	m_swapChain->GetParent(__uuidof(IDXGIFactory2),  &dxgiFactory);
 	dxgiFactory->MakeWindowAssociation(hWnd, DXGI_MWA_NO_ALT_ENTER);
+
 	ComPtr<IDXGISurface> surface;
 	ComPtr<IDXGIDevice> dxgiDevice;
 	m_d3dDevice.As(&dxgiDevice);
@@ -137,31 +139,52 @@ WXLRESULT ComicZipViewerFrame::MSWWindowProc(WXUINT message, WXWPARAM wParam, WX
 void ComicZipViewerFrame::ShowImage(const wxImage& image)
 {
 	auto size = image.GetSize();
-	HRESULT hr;
-	ComPtr<ID3D11Texture2D> texture2d;
-	D3D11_TEXTURE2D_DESC texture2dDesc{};
-	texture2dDesc.ArraySize = 1;
-	texture2dDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	texture2dDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	texture2dDesc.MipLevels = 1;
-	texture2dDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	texture2dDesc.Usage = D3D11_USAGE_DYNAMIC;
-	texture2dDesc.SampleDesc.Count = 1;
-	texture2dDesc.Width = size.GetWidth();
-	texture2dDesc.Height = size.GetHeight();
-	hr = m_d3dDevice->CreateTexture2D(&texture2dDesc, nullptr, &texture2d);
-	ComPtr<IDXGISurface> surface;
-	ComPtr<ID2D1Bitmap1> bitmap;
-	hr = texture2d.As(&surface);
-	hr = m_d2dContext->CreateBitmapFromDxgiSurface(surface.Get(), D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_NONE, D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)), &bitmap);
-	if(FAILED(hr))
+	bool needCreationBitmap = m_bitmap == nullptr;
+	if(!needCreationBitmap)
 	{
-		wxLogError(wxS("Failed to create D2D Bitmap"));
-		return;
+		auto bitmapSize = m_bitmap->GetPixelSize();
+		needCreationBitmap = size.x != bitmapSize.width || size.y != bitmapSize.height;
+		if(needCreationBitmap)
+		{
+			m_bitmap.Reset();
+		}
 	}
 
-	D2D1_MAPPED_RECT mappedRect;
-	bitmap->Map(D2D1_MAP_OPTIONS_DISCARD | D2D1_MAP_OPTIONS_WRITE, &mappedRect);
+	HRESULT hr;
+	ComPtr<ID2D1Bitmap1> bitmap;
+	ComPtr<ID3D11Texture2D> texture2d;
+	ComPtr<IDXGISurface> surface;
+	if(needCreationBitmap)
+	{
+		D3D11_TEXTURE2D_DESC texture2dDesc{};
+		texture2dDesc.ArraySize = 1;
+		texture2dDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		texture2dDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		texture2dDesc.MipLevels = 1;
+		texture2dDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		texture2dDesc.Usage = D3D11_USAGE_DYNAMIC;
+		texture2dDesc.SampleDesc.Count = 1;
+		texture2dDesc.Width = size.GetWidth();
+		texture2dDesc.Height = size.GetHeight();
+		hr = m_d3dDevice->CreateTexture2D(&texture2dDesc, nullptr, &texture2d);
+		hr = texture2d.As(&surface);
+		hr = m_d2dContext->CreateBitmapFromDxgiSurface(surface.Get(), D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_NONE, D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)), &bitmap);
+		if(FAILED(hr))
+		{
+			wxLogError(wxS("Failed to create D2D Bitmap"));
+			return;
+		}
+	}
+	else
+	{
+		bitmap = m_bitmap;
+		bitmap->GetSurface(&surface);
+		hr = surface.As(&texture2d);
+		assert(texture2d != nullptr);
+	}
+
+	D3D11_MAPPED_SUBRESOURCE mappedRect;
+	m_d3dContext->Map(texture2d.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedRect);
 	const wxByte* const rowData = image.GetData();
 	const wxByte* const alpha = image.GetAlpha();
 	const bool hasAlpha = image.HasAlpha();
@@ -172,11 +195,11 @@ void ComicZipViewerFrame::ShowImage(const wxImage& image)
 			const int idx = row * 3 * size.GetWidth() + cols * 3;
 			uint32_t rgba = 0;
 			rgba = rowData[idx] | rowData[idx + 1] << 8 | rowData[idx + 2] << 16 | (hasAlpha ? alpha[row * size.GetWidth() + cols] : 0xFF) << 24;
-			*reinterpret_cast<uint32_t*>(mappedRect.bits + row * mappedRect.pitch + cols * 4) = rgba;
+			*reinterpret_cast<uint32_t*>((uint8_t*)mappedRect.pData + row * mappedRect.RowPitch + cols * 4) = rgba;
 		}
 	}
 
-	bitmap->Unmap();
+	m_d3dContext->Unmap(texture2d.Get(), 0);
 	m_bitmap = bitmap;
 	m_imageSize = size;
 	TryRender();
@@ -249,11 +272,13 @@ void ComicZipViewerFrame::ResizeSwapChain(const wxSize clientRect)
 		&m_targetBitmap);
 
 	m_d2dContext->SetTarget(m_targetBitmap.Get());
-
 }
 
 void ComicZipViewerFrame::Render()
 {
+	if(IsFrozen())
+		return;
+
 	m_willRender = false;
 	HRESULT hRet;
 	m_d2dContext->BeginDraw();
@@ -530,8 +555,14 @@ void ComicZipViewerFrame::SetSeekBarPos(int value)
 	TryRender();
 }
 
-BEGIN_EVENT_TABLE(ComicZipViewerFrame, wxFrame)
-EVT_SIZE(ComicZipViewerFrame::OnSize)
+void ComicZipViewerFrame::DoThaw()
+{
+	wxFrame::DoThaw();
+	Render();
+}
+
+BEGIN_EVENT_TABLE(ComicZipViewerFrame , wxFrame)
+	EVT_SIZE(ComicZipViewerFrame::OnSize)
 EVT_KEY_DOWN(ComicZipViewerFrame::OnKeyDown)
 EVT_KEY_UP(ComicZipViewerFrame::OnKeyUp)
 EVT_RIGHT_DOWN(ComicZipViewerFrame::OnRButtonDown)
