@@ -424,9 +424,6 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 			const int value = ( x - seekBarRect.left ) / gap;
 			if ( value != m_valueSeekBar )
 			{
-				char buff[ 80 ];
-				sprintf_s(buff , "prev: %d, new: %d\n" , m_valueSeekBar , value);
-				OutputDebugStringA(buff);
 				m_valueSeekBar = value;
 				if ( m_valueSeekBar < 0 )
 				{
@@ -480,18 +477,41 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 	if ( pageCount == 0 )
 		return;
 
-	const Rect& seekBarRect = m_seekBarRect;
-	const float scale = GetDPIScaleFactor();
-	const float percent = (float)m_valueSeekBar / ( float ) pageCount;
-	const float x = seekBarRect.GetWidth() * percent + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale + seekBarRect.left;
-	const float y = seekBarRect.top + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
-	const float radius = SEEK_BAR_THUMB_RADIUS * scale;
 	const wxPoint pos = evt.GetPosition();
-	const float diffX = pos.x - x;
+	const float scale = GetDPIScaleFactor();
+	const Rect& seekBarRect = m_seekBarRect;
+	Rect seekBarJumpHitRect = seekBarRect;
+	seekBarJumpHitRect.top -= SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
+	seekBarJumpHitRect.bottom += SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
+	const float y = seekBarRect.top + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
 	const float diffY = pos.y - y;
-	if(diffX * diffX + diffY * diffY <= radius * radius)
+	if(seekBarJumpHitRect.left <= pos.x && pos.x <= seekBarJumpHitRect.right
+		&& seekBarJumpHitRect.top <= pos.y && pos.y <= seekBarJumpHitRect.bottom)
 	{
-		m_offsetSeekbarThumbPos = wxPoint(diffX , diffY);
+		const float gap = seekBarRect.GetWidth() / pageCount;
+		const int value = ( pos.x - seekBarRect.left ) / gap;
+		const float x = seekBarRect.GetWidth() * ((float)value / pageCount) + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale + seekBarRect.left;
+		m_offsetSeekbarThumbPos = wxPoint(pos.x - x , diffY);
+		if(m_valueSeekBar != value)
+		{
+			m_valueSeekBar = value;
+			TryRender();
+			auto scrollEvent = wxScrollEvent(wxEVT_SCROLL_THUMBTRACK , wxID_ANY , value , wxHORIZONTAL);
+			scrollEvent.SetEventObject(this);
+			scrollEvent.ResumePropagation(wxEVENT_PROPAGATE_MAX);
+			ProcessWindowEvent(scrollEvent);
+		}
+	}
+	else
+	{
+		const float percent = (float)m_valueSeekBar / ( float ) pageCount;
+		const float x = seekBarRect.GetWidth() * percent + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale + seekBarRect.left;
+		const float radius = SEEK_BAR_THUMB_RADIUS * scale;
+		const float diffX = pos.x - x;
+		if(diffX * diffX + diffY * diffY <= radius * radius)
+		{
+			m_offsetSeekbarThumbPos = wxPoint(diffX , diffY);
+		}
 	}
 }
 
@@ -563,14 +583,14 @@ void ComicZipViewerFrame::DoThaw()
 
 BEGIN_EVENT_TABLE(ComicZipViewerFrame , wxFrame)
 	EVT_SIZE(ComicZipViewerFrame::OnSize)
-EVT_KEY_DOWN(ComicZipViewerFrame::OnKeyDown)
-EVT_KEY_UP(ComicZipViewerFrame::OnKeyUp)
-EVT_RIGHT_DOWN(ComicZipViewerFrame::OnRButtonDown)
-EVT_RIGHT_UP(ComicZipViewerFrame::OnRButtonUp)
-EVT_LEFT_DOWN(ComicZipViewerFrame::OnLMouseDown)
-EVT_LEFT_UP(ComicZipViewerFrame::OnLMouseUp)
-EVT_MOTION(ComicZipViewerFrame::OnMouseMove)
-EVT_LEAVE_WINDOW(ComicZipViewerFrame::OnMouseLeave)
-EVT_COMMAND(wxID_ANY, wxEVT_SHOW_CONTROL_PANEL, ComicZipViewerFrame::OnShowControlPanel)
-EVT_COMMAND(wxID_ANY, wxEVT_HIDE_CONTROL_PANEL, ComicZipViewerFrame::OnHideControlPanel)
+	EVT_KEY_DOWN(ComicZipViewerFrame::OnKeyDown)
+	EVT_KEY_UP(ComicZipViewerFrame::OnKeyUp)
+	EVT_RIGHT_DOWN(ComicZipViewerFrame::OnRButtonDown)
+	EVT_RIGHT_UP(ComicZipViewerFrame::OnRButtonUp)
+	EVT_LEFT_DOWN(ComicZipViewerFrame::OnLMouseDown)
+	EVT_LEFT_UP(ComicZipViewerFrame::OnLMouseUp)
+	EVT_MOTION(ComicZipViewerFrame::OnMouseMove)
+	EVT_LEAVE_WINDOW(ComicZipViewerFrame::OnMouseLeave)
+	EVT_COMMAND(wxID_ANY, wxEVT_SHOW_CONTROL_PANEL, ComicZipViewerFrame::OnShowControlPanel)
+	EVT_COMMAND(wxID_ANY, wxEVT_HIDE_CONTROL_PANEL, ComicZipViewerFrame::OnHideControlPanel)
 END_EVENT_TABLE()
