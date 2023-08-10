@@ -298,9 +298,9 @@ void ComicZipViewerFrame::Render()
 		m_d2dContext->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect(), nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE, D2D1::IdentityMatrix(), m_alphaControlPanel), m_controlPanelLayer.Get());
 		m_d2dContext->FillRectangle(m_panelRect, m_d2dBlackBrush.Get());
 		m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(seekBarRect, SEEK_BAR_TRACK_HEIGHT * 0.5f * scale , SEEK_BAR_TRACK_HEIGHT * 0.5f * scale) , m_d2dGrayBrush.Get());
-		if( wxGetApp().GetPageCount() != 0 )
+		if( wxGetApp().GetPageCount() >= 1 )
 		{
-			const float percent = m_valueSeekBar / ( float ) wxGetApp().GetPageCount();
+			const float percent = m_valueSeekBar / ( float ) (wxGetApp().GetPageCount() - 1);
 			const float bar = seekBarRect.GetWidth() * percent + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale + seekBarRect.left;
 			const float thumbCenterY = seekBarRect.top + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
 			m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(seekBarRect, SEEK_BAR_TRACK_HEIGHT * 0.5f * scale , SEEK_BAR_TRACK_HEIGHT * 0.5f * scale) , m_d2dBlueBrush.Get());
@@ -416,12 +416,15 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 	{
 		if(evt.LeftIsDown() )
 		{
+			const auto maxValue = wxGetApp().GetPageCount() - 1;
+			if(maxValue == 0)
+				return;
 			const Rect& seekBarRect = m_seekBarRect;
 			const float scale = GetDPIScaleFactor();
 			auto& offset = *m_offsetSeekbarThumbPos;
 			const int x = pos.x - offset.x;
 			const float gap = seekBarRect.GetWidth() / wxGetApp().GetPageCount();
-			const int value = ( x - seekBarRect.left ) / gap;
+			const int value = round((x - seekBarRect.left ) / gap);
 			if ( value != m_valueSeekBar )
 			{
 				m_valueSeekBar = value;
@@ -477,6 +480,10 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 	if ( pageCount == 0 )
 		return;
 
+	const auto maxValue = pageCount - 1;
+	if(maxValue == 0)
+		return;
+
 	const wxPoint pos = evt.GetPosition();
 	const float scale = GetDPIScaleFactor();
 	const Rect& seekBarRect = m_seekBarRect;
@@ -488,9 +495,9 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 	if(seekBarJumpHitRect.left <= pos.x && pos.x <= seekBarJumpHitRect.right
 		&& seekBarJumpHitRect.top <= pos.y && pos.y <= seekBarJumpHitRect.bottom)
 	{
-		const float gap = seekBarRect.GetWidth() / pageCount;
-		const int value = ( pos.x - seekBarRect.left ) / gap;
-		const float x = seekBarRect.GetWidth() * ((float)value / pageCount) + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale + seekBarRect.left;
+		const float gap = seekBarRect.GetWidth() / maxValue;
+		const int value = round(( pos.x - seekBarRect.left ) / gap);
+		const float x = seekBarRect.GetWidth() * ((float)value / maxValue) + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale + seekBarRect.left;
 		m_offsetSeekbarThumbPos = wxPoint(pos.x - x , diffY);
 		if(m_valueSeekBar != value)
 		{
@@ -504,7 +511,7 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 	}
 	else
 	{
-		const float percent = (float)m_valueSeekBar / ( float ) pageCount;
+		const float percent = (float)m_valueSeekBar / ( float ) maxValue;
 		const float x = seekBarRect.GetWidth() * percent + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale + seekBarRect.left;
 		const float radius = SEEK_BAR_THUMB_RADIUS * scale;
 		const float diffX = pos.x - x;

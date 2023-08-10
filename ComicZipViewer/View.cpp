@@ -88,14 +88,14 @@ void View::OnKeyDown(wxKeyEvent& evt)
 	m_pFrame->Freeze();
 	m_pFrame->ShowImage(image);
 	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s") , app.GetCurrentPageName()));
-	m_pFrame->SetSeekBarPos(app.GetCurrentPageNumber() - 1);
+	m_pFrame->SetSeekBarPos(app.GetCurrentPageNumber());
 	m_pFrame->Thaw();
 }
 
 void View::OnSeek(wxScrollEvent& evt)
 {
 	auto& app = wxGetApp();
-	app.MovePage(evt.GetPosition() + 1);
+	app.MovePage(evt.GetPosition());
 	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
 	m_pFrame->Freeze();
 	m_pFrame->ShowImage(image);
