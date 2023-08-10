@@ -37,6 +37,7 @@ protected:
 	void OnShown(wxShowEvent& evt);
 	void OnDpiChanged(wxDPIChangedEvent& event);
 	void UpdateClientSize(const wxSize& sz);
+	void TryRender();
 private:
 	ComPtr<ID3D11Device> m_d3dDevice;
 	ComPtr<ID3D11DeviceContext> m_d3dContext;
@@ -48,6 +49,7 @@ private:
 	ComPtr<ID2D1SolidColorBrush> m_d2dBlackBrush;
 	ComPtr<ID2D1SolidColorBrush> m_d2dBlueBrush;
 	ComPtr<ID2D1SolidColorBrush> m_d2dWhiteBrush;
+	ComPtr<ID2D1SolidColorBrush> m_d2dGrayBrush;
 	ComPtr<ID2D1Bitmap1> m_bitmap;
 	bool m_isSizing;
 	bool m_enterIsDown;
@@ -58,8 +60,9 @@ private:
 	wxSize m_imageSize;
 	wxSize m_clientSize;
 	wxRect2DDouble m_panelRect;
-	std::optional<wxPoint> m_posSeekBarThumbDown;
+	std::optional<wxPoint> m_offsetSeekbarThumbPos;
 	int m_valueSeekBar;
+	bool m_willRender;
 };
 
 wxDECLARE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);
