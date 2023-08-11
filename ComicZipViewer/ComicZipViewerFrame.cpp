@@ -791,7 +791,7 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 			m_center.y = m_movableCenterRange.height * m_center.y / abs(m_center.y);
 			wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
 			event.SetEventObject(this);
-			if( m_center.y  > 0.f)
+			if(r > 0.f)
 			{
 				event.SetId(wxID_BACKWARD);
 			}
