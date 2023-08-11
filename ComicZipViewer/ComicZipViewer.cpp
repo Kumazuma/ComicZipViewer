@@ -112,8 +112,8 @@ bool ComicZipViewerApp::GetPageName(uint32_t idx, wxString* filename)
 }
 
 constexpr uint64_t MAGIC_NUMBER_PNG = 0x89504e470d0a1a0a;
-constexpr uint64_t MAGIC_NUMBER_GIF87A = 0x00474946383761; // GIF87a;
-constexpr uint64_t MAGIC_NUMBER_GIF89A = 0x00474946383961; // GIF89a;
+constexpr uint64_t MAGIC_NUMBER_GIF87A = 0x4749463837610000; // GIF87a;
+constexpr uint64_t MAGIC_NUMBER_GIF89A = 0x4749463839610000; // GIF89a;
 wxImage ComicZipViewerApp::GetDecodedImage(uint32_t idx)
 {
 	wxImage image;
@@ -134,20 +134,22 @@ wxImage ComicZipViewerApp::GetDecodedImage(uint32_t idx)
 	{
 		loaded  = m_pngHandler.LoadFile(&image, memStream, false);
 	}
-	
-	if(!loaded && readByteCount >= 6)
-	{
-		const uint64_t masicNumber6Octet = masicNumber & (~0xFF00000000000000);
-		if(masicNumber6Octet == MAGIC_NUMBER_GIF87A || masicNumber6Octet == MAGIC_NUMBER_GIF89A)
-		{
-			loaded = m_gifHandler.LoadFile(&image, memStream, false);
-		}
-	}
+
 	// JPEG has no magic number
 	if(!loaded && m_jpegHandler.CanRead(memStream))
 	{
 		loaded = m_jpegHandler.LoadFile(&image, memStream, false);
 	}
+
+	if(!loaded && readByteCount >= 6)
+	{
+		const uint64_t masicNumber6Octet = masicNumber & (~0x000000000000FFFF);
+		if(masicNumber6Octet == MAGIC_NUMBER_GIF87A || masicNumber6Octet == MAGIC_NUMBER_GIF89A)
+		{
+			loaded = m_gifHandler.LoadFile(&image, memStream, false);
+		}
+	}
+
 
 	delete buffer;
 
