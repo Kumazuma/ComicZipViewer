@@ -83,6 +83,7 @@ private:
 	bool m_isSizing;
 	bool m_enterIsDown;
 	bool m_shownControlPanel;
+	bool m_overCaption;
 	float m_alphaControlPanel;
 	wxMenu* m_pContextMenu;
 	wxSize m_imageSize;

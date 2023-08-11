@@ -42,7 +42,7 @@ ComicZipViewerFrame::~ComicZipViewerFrame()
 
 bool ComicZipViewerFrame::Create()
 {
-	auto ret = wxFrame::Create(nullptr, wxID_ANY, wxS("ComicZipViewer"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE | wxWANTS_CHARS);
+	auto ret = wxFrame::Create(nullptr, wxID_ANY, wxS("ComicZipViewer"), wxDefaultPosition, wxDefaultSize, (wxDEFAULT_FRAME_STYLE | wxWANTS_CHARS) & ~(wxCAPTION | 0));
 	if ( !ret )
 	{
 		return false;
@@ -52,7 +52,7 @@ bool ComicZipViewerFrame::Create()
 	m_pContextMenu = new wxMenu();
 	m_pContextMenu->Append(wxID_OPEN, wxS("Open(&O)"));
 
-
+		
 	auto* pImageSizingModeMenu = new wxMenu();
 	pImageSizingModeMenu->Append(ID_BTN_ORIGINAL , wxS("original size"));
 	pImageSizingModeMenu->Append(ID_BTN_FIT_WIDTH, wxS("Fit window's width"));
@@ -144,8 +144,81 @@ bool ComicZipViewerFrame::Create()
 
 WXLRESULT ComicZipViewerFrame::MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam)
 {
+	HWND hWnd = GetHWND();
 	switch(message)
 	{
+
+	case WM_NCCALCSIZE: {
+		if (!wParam)
+			return wxFrame::MSWWindowProc(message, wParam, lParam);
+
+		UINT dpi = GetDpiForWindow(hWnd);
+
+		int frame_x = GetSystemMetricsForDpi(SM_CXFRAME, dpi);
+		int frame_y = GetSystemMetricsForDpi(SM_CYFRAME, dpi);
+		int padding = GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+
+		NCCALCSIZE_PARAMS* params = (NCCALCSIZE_PARAMS *)lParam;
+		RECT* requested_client_rect = params->rgrc;
+
+		if(!IsFullScreen())
+		{
+			requested_client_rect->right -= frame_x + padding;
+			requested_client_rect->left += frame_x + padding;
+			requested_client_rect->bottom -= frame_y + padding;
+
+			if (IsMaximized()) {
+				requested_client_rect->top += padding;
+			}
+		}
+
+
+		return 0;
+	}
+	case WM_NCHITTEST: {
+	  // Let the default procedure handle resizing areas
+	  LRESULT hit = wxFrame::MSWWindowProc(message, wParam, lParam);
+	  switch (hit) {
+		case HTNOWHERE:
+		case HTRIGHT:
+		case HTLEFT:
+		case HTTOPLEFT:
+		case HTTOP:
+		case HTTOPRIGHT:
+		case HTBOTTOMRIGHT:
+		case HTBOTTOM:
+		case HTBOTTOMLEFT: {
+		  return hit;
+		}
+	  }
+
+	  // Check if hover button is on maximize to support SnapLayout on Windows 11
+	  //if (title_bar_hovered_button == CustomTitleBarHoveredButton_Maximize) {
+	  //  return HTMAXBUTTON;
+	  //}
+
+			
+	  // Looks like adjustment happening in NCCALCSIZE is messing with the detection
+	  // of the top hit area so manually fixing that.
+	  UINT dpi = GetDpiForWindow(hWnd);
+	  int frame_y = GetSystemMetricsForDpi(SM_CYFRAME, dpi);
+	  int padding = GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+			wxPoint s = wxGetMousePosition();
+	  s = ScreenToClient(s);
+	if(!IsFullScreen())
+	{
+		if (s.y > 0 && s.y < frame_y + padding) {
+			return HTTOP;
+		  }
+
+		  // Since we are drawing our own caption, this needs to be a custom test
+		  if (s.y < 47) {
+			return HTCAPTION;
+		  }
+	}
+
+	  return HTCLIENT;
+	}
 	case WM_ENTERSIZEMOVE:
 		m_isSizing = true;
 		break;
@@ -241,7 +314,7 @@ void ComicZipViewerFrame::ShowImage(const wxImage& image)
 
 void ComicZipViewerFrame::OnSize(wxSizeEvent& evt)
 {
-	if(m_isSizing)
+	if(m_isSizing | !IsShown())
 		return;
 
 	UpdateClientSize(GetClientSize());
@@ -522,6 +595,8 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 {
 	m_offsetSeekbarThumbPos = std::nullopt;
 	const wxPoint pos = evt.GetPosition();
+	if(pos.x < 47)
+		m_overCaption = true;
 
 	m_latestHittenButtonId = wxID_ANY;
 	if( m_originalBtnRect.left <= pos.x && pos.x <= m_originalBtnRect.right
@@ -591,6 +666,7 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 void ComicZipViewerFrame::OnLMouseUp(wxMouseEvent& evt)
 {
 	m_offsetSeekbarThumbPos = std::nullopt;
+	m_overCaption = false;
 	const auto pos = evt.GetPosition();
 	if ( m_latestHittenButtonId == wxID_ANY )
 		return;
