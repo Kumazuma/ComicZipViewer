@@ -194,6 +194,8 @@
     <None Include="scale-fit-svgrepo-com.svg">
       <FileType>Document</FileType>
     </None>
+    <None Include="star-svgrepo-com.svg" />
+    <None Include="text-bullet-list-square-svgrepo-com.svg" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
