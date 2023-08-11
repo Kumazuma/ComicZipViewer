@@ -743,6 +743,11 @@ void ComicZipViewerFrame::UpdateScaledImageSize()
 	case ImageViewModeKind::ORIGINAL:
 		width = m_imageSize.x;
 		height = m_imageSize.y;
+		m_center = D2D1::Point2F(0.f , height - m_clientSize.y * 0.5f);
+		if ( m_center.y < 0.f )
+			m_center.y = 0.f;
+
+		m_movableCenterRange.height = m_center.y;
 		break;
 
 	case ImageViewModeKind::FIT_PAGE:
@@ -767,7 +772,42 @@ void ComicZipViewerFrame::UpdateScaledImageSize()
 
 void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 {
+	if(evt.GetWheelAxis() == wxMOUSE_WHEEL_VERTICAL)
+	{
+		auto r = evt.GetWheelRotation();
+		m_center.y += ( r / 120.f ) * m_clientSize.y * 0.25f;
+		if( m_movableCenterRange.height < abs(m_center.y) )
+		{
+			wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
+			event.SetEventObject(this);
+			if( m_center.y  > 0.f)
+			{
+				event.SetId(wxID_BACKWARD);
+			}
+			else
+			{
+				event.SetId(wxID_FORWARD);
+			}
 
+			ProcessWindowEvent(event);
+		}
+		else
+		{
+			TryRender();
+		}
+
+	}
+	else
+	{
+		auto r = evt.GetWheelRotation();
+		m_center.x += ( r / 120.f ) * m_clientSize.x * 0.25f;
+		if ( m_movableCenterRange.width < abs(m_center.x) )
+		{
+			m_center.x = m_movableCenterRange.width * m_center.x / abs(m_center.x);
+		}
+		
+		TryRender();
+	}
 }
 
 void ComicZipViewerFrame::SetSeekBarPos(int value)
