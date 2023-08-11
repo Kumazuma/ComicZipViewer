@@ -78,7 +78,8 @@ private:
 	ComPtr<ID2D1StrokeStyle> m_d2dSimpleStrokeStyle;
 	ComPtr<ID2D1Bitmap1> m_bitmap;
 	ComPtr<ID2D1Layer> m_controlPanelLayer;
-	std::unordered_map<std::wstring_view, std::tuple<wxBitmapBundle, ComPtr<ID2D1Bitmap1>>> m_iconBitmapTable;
+	ComPtr<ID2D1Bitmap1> m_iconAtlas;
+	std::unordered_map<std::wstring_view, std::tuple<wxBitmapBundle, D2D1_RECT_F>> m_iconBitmapInfo;
 	bool m_isSizing;
 	bool m_enterIsDown;
 	bool m_shownControlPanel;
@@ -91,9 +92,11 @@ private:
 	Rect m_fitWidthBtnRect;
 	Rect m_fitPageBtnRect;
 	Rect m_originalBtnRect;
+	Rect m_bookmarkViewBtnRect;
 	std::optional<wxPoint> m_offsetSeekbarThumbPos;
 	int m_valueSeekBar;
 	bool m_willRender;
+	bool m_mouseOverBookmarksButton;
 	ImageViewModeKind m_imageViewMode;
 	wxWindowID m_latestHittenButtonId;
 	D2D1_SIZE_F m_scaledImageSize;

@@ -99,10 +99,14 @@
     <None Include="page-svgrepo-com.svg">
       <Filter>리소스 파일</Filter>
     </None>
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="page-fit-svgrepo-com.svg">
+    <None Include="text-bullet-list-square-svgrepo-com.svg">
       <Filter>리소스 파일</Filter>
-    </Resource>
+    </None>
+    <None Include="star-svgrepo-com.svg">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="page-fit-svgrepo-com.svg">
+      <Filter>리소스 파일</Filter>
+    </None>
   </ItemGroup>
 </Project>
