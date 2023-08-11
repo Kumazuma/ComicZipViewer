@@ -653,6 +653,9 @@ void ComicZipViewerFrame::UpdateClientSize(const wxSize& sz)
 
 void ComicZipViewerFrame::TryRender()
 {
+	if(IsFrozen())
+		return;
+
 	if ( m_willRender )
 		return;
 
@@ -775,8 +778,10 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 	if(evt.GetWheelAxis() == wxMOUSE_WHEEL_VERTICAL)
 	{
 		auto r = evt.GetWheelRotation();
-		m_center.y += ( r / 120.f ) * m_clientSize.y * 0.25f;
-		if( m_movableCenterRange.height < abs(m_center.y) )
+		m_center.y += ( r / 120.f ) * m_clientSize.y * 0.15f;
+		float diff = abs(m_center.y) - m_movableCenterRange.height;
+		const bool isOverScroll = diff > 0;
+		if(isOverScroll)
 		{
 			wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
 			event.SetEventObject(this);
@@ -790,12 +795,10 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 			}
 
 			ProcessWindowEvent(event);
-		}
-		else
-		{
-			TryRender();
+			return;
 		}
 
+		TryRender();
 	}
 	else
 	{
