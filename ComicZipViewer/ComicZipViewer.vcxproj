@@ -185,6 +185,16 @@
   <ItemGroup>
     <ResourceCompile Include="ComicZipViewer.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="arrow-fit-width-svgrepo-com.svg" />
+    <None Include="page-fit-svgrepo-com.svg">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="page-svgrepo-com.svg" />
+    <None Include="scale-fit-svgrepo-com.svg">
+      <FileType>Document</FileType>
+    </None>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

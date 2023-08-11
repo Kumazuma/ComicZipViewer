@@ -89,4 +89,20 @@
       <Filter>리소스 파일</Filter>
     </ResourceCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="arrow-fit-width-svgrepo-com.svg">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="scale-fit-svgrepo-com.svg">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="page-svgrepo-com.svg">
+      <Filter>리소스 파일</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="page-fit-svgrepo-com.svg">
+      <Filter>리소스 파일</Filter>
+    </Resource>
+  </ItemGroup>
 </Project>

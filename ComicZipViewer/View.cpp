@@ -103,9 +103,68 @@ void View::OnSeek(wxScrollEvent& evt)
 	m_pFrame->Thaw();
 }
 
-BEGIN_EVENT_TABLE(View , wxEvtHandler)
-	EVT_MENU(wxID_ANY, View::OnMenu)
+void View::OnClickedOriginal(wxCommandEvent&)
+{
+	m_pFrame->SetImageViewMode(ImageViewModeKind::ORIGINAL);
+}
+
+void View::OnClickedFitPage(wxCommandEvent&)
+{
+	m_pFrame->SetImageViewMode(ImageViewModeKind::FIT_PAGE);
+}
+
+void View::OnClickedFitWidth(wxCommandEvent&)
+{
+	m_pFrame->SetImageViewMode(ImageViewModeKind::FIT_WIDTH);
+}
+
+void View::OnForward(wxCommandEvent&)
+{
+	auto& app = wxGetApp();
+	int latestPageNumber = app.GetCurrentPageNumber();
+	app.MoveNextPage();
+	if ( app.GetCurrentPageNumber() == latestPageNumber )
+	{
+		return;
+	}
+
+	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+	m_pFrame->Freeze();
+	m_pFrame->ShowImage(image);
+	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s") , app.GetCurrentPageName()));
+	m_pFrame->SetSeekBarPos(app.GetCurrentPageNumber());
+	m_pFrame->Thaw();
+}
+
+void View::OnBackward(wxCommandEvent&)
+{
+	auto& app = wxGetApp();
+	int latestPageNumber = app.GetCurrentPageNumber();
+	app.MovePrevPage();
+	if ( app.GetCurrentPageNumber() == latestPageNumber )
+	{
+		return;
+	}
+
+	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+	m_pFrame->Freeze();
+	m_pFrame->ShowImage(image);
+	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s") , app.GetCurrentPageName()));
+	m_pFrame->SetSeekBarPos(app.GetCurrentPageNumber());
+	m_pFrame->Thaw();
+}
+
+BEGIN_EVENT_TABLE(View, wxEvtHandler)
+	EVT_MENU(ID_BTN_FIT_PAGE , View::OnClickedFitPage)
+	EVT_MENU(ID_BTN_FIT_WIDTH , View::OnClickedFitWidth)
+	EVT_MENU(ID_BTN_ORIGINAL , View::OnClickedOriginal)
 	EVT_CLOSE(View::OnClose)
 	EVT_KEY_DOWN(View::OnKeyDown)
 	EVT_SCROLL_THUMBTRACK(View::OnSeek)
+	EVT_BUTTON(wxID_FORWARD, View::OnForward)
+	EVT_BUTTON(wxID_BACKWARD, View::OnBackward)
+	EVT_BUTTON(ID_BTN_FIT_PAGE, View::OnClickedFitPage)
+	EVT_BUTTON(ID_BTN_FIT_WIDTH, View::OnClickedFitWidth)
+	EVT_BUTTON(ID_BTN_ORIGINAL, View::OnClickedOriginal)
+	EVT_MENU(wxID_ANY , View::OnMenu)
 END_EVENT_TABLE()
