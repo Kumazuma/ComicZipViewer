@@ -778,10 +778,15 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 	if(evt.GetWheelAxis() == wxMOUSE_WHEEL_VERTICAL)
 	{
 		auto r = evt.GetWheelRotation();
+		const float prevCenterY = m_center.y;
 		m_center.y += ( r / 120.f ) * m_clientSize.y * 0.15f;
 		float diff = abs(m_center.y) - m_movableCenterRange.height;
 		const bool isOverScroll = diff > 0;
-		if(isOverScroll)
+		if(isOverScroll && diff < (m_clientSize.y - 1) * 0.15f)
+		{
+			m_center.y = m_movableCenterRange.height * m_center.y / abs(m_center.y);
+		}
+		else if(isOverScroll)
 		{
 			wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
 			event.SetEventObject(this);
@@ -803,7 +808,7 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 	else
 	{
 		auto r = evt.GetWheelRotation();
-		m_center.x += ( r / 120.f ) * m_clientSize.x * 0.25f;
+		m_center.x += ( r / 120.f ) * m_clientSize.x * 0.33f;
 		if ( m_movableCenterRange.width < abs(m_center.x) )
 		{
 			m_center.x = m_movableCenterRange.width * m_center.x / abs(m_center.x);
