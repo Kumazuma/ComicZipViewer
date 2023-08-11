@@ -293,7 +293,7 @@ void ComicZipViewerFrame::Render()
 	if(m_bitmap)
 	{
 		m_d2dContext->SetTransform(D2D1::Matrix3x2F::Translation(m_clientSize.x * 0.5f , m_clientSize.y * 0.5f) * D2D1::Matrix3x2F::Translation(m_center.x, m_center.y));
-		m_d2dContext->DrawBitmap(m_bitmap.Get() , D2D1::RectF(-m_scaledImageSize.width , -m_scaledImageSize.height , m_scaledImageSize.width , m_scaledImageSize.height));
+		m_d2dContext->DrawBitmap(m_bitmap.Get() , D2D1::RectF(-m_scaledImageSize.width , -m_scaledImageSize.height , m_scaledImageSize.width , m_scaledImageSize.height), 1.f, D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC);
 		m_d2dContext->SetTransform(D2D1::Matrix3x2F::Identity());
 	}
 
@@ -437,7 +437,6 @@ void ComicZipViewerFrame::OnMouseLeave(wxMouseEvent& evt)
 void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 {
 	auto pos = evt.GetPosition();
-	m_latestHittenButtonId = wxID_ANY;
 	if( m_offsetSeekbarThumbPos.has_value())
 	{
 		if(evt.LeftIsDown() )
@@ -573,6 +572,9 @@ void ComicZipViewerFrame::OnLMouseUp(wxMouseEvent& evt)
 {
 	m_offsetSeekbarThumbPos = std::nullopt;
 	const auto pos = evt.GetPosition();
+	if ( m_latestHittenButtonId == wxID_ANY )
+		return;
+
 	wxWindowID hitId = wxID_ANY;
 	if ( m_originalBtnRect.left <= pos.x && pos.x <= m_originalBtnRect.right
 	&& m_originalBtnRect.top <= pos.y && pos.y <= m_originalBtnRect.bottom )
@@ -594,6 +596,7 @@ void ComicZipViewerFrame::OnLMouseUp(wxMouseEvent& evt)
 		return;
 
 	wxCommandEvent clickedEvent(wxEVT_BUTTON , hitId);
+	m_latestHittenButtonId = wxID_ANY;
 	clickedEvent.SetEventObject(this);
 	ProcessWindowEvent(clickedEvent);
 }
