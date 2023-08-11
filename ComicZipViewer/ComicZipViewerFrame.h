@@ -15,7 +15,7 @@ struct Rect : public D2D1_RECT_F
 
 };
 
-enum class ImageSizeMode
+enum class ImageViewModeKind
 {
 	ORIGINAL,
 	FIT_PAGE,
@@ -36,7 +36,7 @@ public:
 	WXLRESULT MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam) override;
 	void ShowImage(const wxImage& image);
 	void SetSeekBarPos(int value);
-	void SetImageResizeMode(ImageSizeMode mode);
+	void SetImageViewMode(ImageViewModeKind mode);
 protected:
 	void DoThaw() override;
 	void OnSize(wxSizeEvent& evt);
@@ -58,6 +58,8 @@ protected:
 	void TryRender();
 	void GenerateIconBitmaps();
 	void OnContextMenu(wxContextMenuEvent& evt);
+	void UpdateScaledImageSize();
+	void OnMouseWheel(wxMouseEvent& evt);
 private:
 	wxBitmapBundle m_iconFitPage;
 	wxBitmapBundle m_iconFitWidth;
@@ -92,8 +94,11 @@ private:
 	std::optional<wxPoint> m_offsetSeekbarThumbPos;
 	int m_valueSeekBar;
 	bool m_willRender;
-	ImageSizeMode m_imageSizeMode;
+	ImageViewModeKind m_imageViewMode;
 	wxWindowID m_latestHittenButtonId;
+	D2D1_SIZE_F m_scaledImageSize;
+	D2D1_SIZE_F m_movableCenterRange;
+	D2D1_POINT_2F m_center;
 };
 
 wxDECLARE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);

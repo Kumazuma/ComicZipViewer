@@ -13,6 +13,7 @@ wxDEFINE_EVENT(wxEVT_HIDE_CONTROL_PANEL, wxCommandEvent);
 constexpr float SEEK_BAR_PADDING = 15.f;
 constexpr float SEEK_BAR_TRACK_HEIGHT = 5.f;
 constexpr float SEEK_BAR_THUMB_RADIUS = 10.f;
+
 ComicZipViewerFrame::ComicZipViewerFrame()
 	: m_isSizing(false)
 	, m_enterIsDown(false)
@@ -22,7 +23,7 @@ ComicZipViewerFrame::ComicZipViewerFrame()
 	, m_offsetSeekbarThumbPos()
 	, m_valueSeekBar()
 	, m_willRender(false)
-	, m_imageSizeMode()
+	, m_imageViewMode()
 	, m_latestHittenButtonId(wxID_ANY)
 {
 }
@@ -227,6 +228,7 @@ void ComicZipViewerFrame::ShowImage(const wxImage& image)
 	m_d3dContext->Unmap(texture2d.Get(), 0);
 	m_bitmap = bitmap;
 	m_imageSize = size;
+	UpdateScaledImageSize();
 	TryRender();
 }
 
@@ -290,7 +292,9 @@ void ComicZipViewerFrame::Render()
 	m_d2dContext->Clear(D2D1::ColorF(0.3f, 0.3f, 0.3f, 1.f));
 	if(m_bitmap)
 	{
-		m_d2dContext->DrawBitmap(m_bitmap.Get(), D2D1::RectF(0.f, 0.f, m_imageSize.GetWidth(), m_imageSize.GetHeight()));
+		m_d2dContext->SetTransform(D2D1::Matrix3x2F::Translation(m_clientSize.x * 0.5f , m_clientSize.y * 0.5f) * D2D1::Matrix3x2F::Translation(m_center.x, m_center.y));
+		m_d2dContext->DrawBitmap(m_bitmap.Get() , D2D1::RectF(-m_scaledImageSize.width , -m_scaledImageSize.height , m_scaledImageSize.width , m_scaledImageSize.height));
+		m_d2dContext->SetTransform(D2D1::Matrix3x2F::Identity());
 	}
 
 	if(m_alphaControlPanel > 0.f)
@@ -316,17 +320,17 @@ void ComicZipViewerFrame::Render()
 			m_d2dContext->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(bar, thumbCenterY), SEEK_BAR_THUMB_RADIUS * scale , SEEK_BAR_THUMB_RADIUS * scale) , m_d2dBlueBrush.Get(), 0.5f, m_d2dSimpleStrokeStyle.Get());
 		}
 
-		if(m_imageSizeMode == ImageSizeMode::ORIGINAL)
+		if(m_imageViewMode == ImageViewModeKind::ORIGINAL)
 			m_d2dContext->FillRectangle(m_originalBtnRect, m_d2dWhiteBrush.Get());
 
 		m_d2dContext->DrawBitmap(std::get<1>(m_iconBitmapTable[wxS("ID_SVG_PAGE")]).Get(), m_originalBtnRect);
 
-		if(m_imageSizeMode == ImageSizeMode::FIT_PAGE)
+		if(m_imageViewMode == ImageViewModeKind::FIT_PAGE)
 			m_d2dContext->FillRectangle(m_fitPageBtnRect, m_d2dWhiteBrush.Get());
 
 		m_d2dContext->DrawBitmap(std::get<1>(m_iconBitmapTable[wxS("ID_SVG_FIT_PAGE")]).Get(), m_fitPageBtnRect);
 
-		if(m_imageSizeMode == ImageSizeMode::FIT_WIDTH)
+		if(m_imageViewMode == ImageViewModeKind::FIT_WIDTH)
 			m_d2dContext->FillRectangle(m_fitWidthBtnRect, m_d2dWhiteBrush.Get());
 
 		m_d2dContext->DrawBitmap(std::get<1>(m_iconBitmapTable[wxS("ID_SVG_FIT_WIDTH")]).Get(), m_fitWidthBtnRect);
@@ -640,6 +644,8 @@ void ComicZipViewerFrame::UpdateClientSize(const wxSize& sz)
 	m_fitWidthBtnRect.right = m_fitWidthBtnRect.left + 64 * scale;
 	m_fitWidthBtnRect.top = m_seekBarRect.bottom + 10 * scale;
 	m_fitWidthBtnRect.bottom = m_fitWidthBtnRect.top + 64 * scale;
+
+	UpdateScaledImageSize();
 }
 
 void ComicZipViewerFrame::TryRender()
@@ -713,6 +719,54 @@ void ComicZipViewerFrame::OnContextMenu(wxContextMenuEvent& evt)
 	PopupMenu(m_pContextMenu , ScreenToClient(evt.GetPosition()));
 }
 
+void ComicZipViewerFrame::UpdateScaledImageSize()
+{
+	float width;
+	float height;
+	m_center = D2D1::Point2F(0.f , 0.f);
+	m_movableCenterRange = D2D1::SizeF(0.f , 0.f);
+	switch(m_imageViewMode )
+	{
+	case ImageViewModeKind::FIT_WIDTH:
+		width = m_clientSize.x * 0.5f;
+		height = static_cast< float >( m_imageSize.y ) / static_cast< float >( m_imageSize.x );
+		height = width * height;
+		m_center = D2D1::Point2F(0.f , height - m_clientSize.y * 0.5f);
+		if ( m_center.y < 0.f )
+			m_center.y = 0.f;
+
+		m_movableCenterRange.height = m_center.y;
+		break;
+	case ImageViewModeKind::ORIGINAL:
+		width = m_imageSize.x;
+		height = m_imageSize.y;
+		break;
+
+	case ImageViewModeKind::FIT_PAGE:
+		if ( m_imageSize.x / ( float ) m_imageSize.y <= m_clientSize.x / ( float ) m_clientSize.y )
+		{
+			height = m_clientSize.y * 0.5f;
+			width = static_cast< float >( m_imageSize.x ) / static_cast< float >( m_imageSize.y );
+			width = width * height;
+		}
+		else
+		{
+			width = m_clientSize.x * 0.5f;
+			height = static_cast< float >( m_imageSize.y ) / static_cast< float >( m_imageSize.x );
+			height = width * height;
+		}
+
+		break;
+	}
+
+	m_scaledImageSize = D2D1::SizeF(width , height);
+}
+
+void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
+{
+
+}
+
 void ComicZipViewerFrame::SetSeekBarPos(int value)
 {
 	m_valueSeekBar = value;
@@ -720,9 +774,10 @@ void ComicZipViewerFrame::SetSeekBarPos(int value)
 	TryRender();
 }
 
-void ComicZipViewerFrame::SetImageResizeMode(ImageSizeMode mode)
+void ComicZipViewerFrame::SetImageViewMode(ImageViewModeKind mode)
 {
-	m_imageSizeMode = mode;
+	m_imageViewMode = mode;
+	UpdateScaledImageSize();
 	TryRender();
 }
 
@@ -744,4 +799,5 @@ BEGIN_EVENT_TABLE(ComicZipViewerFrame , wxFrame)
 	EVT_COMMAND(wxID_ANY, wxEVT_HIDE_CONTROL_PANEL, ComicZipViewerFrame::OnHideControlPanel)
 	EVT_DPI_CHANGED(ComicZipViewerFrame::OnDpiChanged)
 	EVT_CONTEXT_MENU(ComicZipViewerFrame::OnContextMenu)
+	EVT_MOUSEWHEEL(ComicZipViewerFrame::OnMouseWheel)
 END_EVENT_TABLE()

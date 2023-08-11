@@ -105,17 +105,17 @@ void View::OnSeek(wxScrollEvent& evt)
 
 void View::OnClickedOriginal(wxCommandEvent&)
 {
-	m_pFrame->SetImageResizeMode(ImageSizeMode::ORIGINAL);
+	m_pFrame->SetImageViewMode(ImageViewModeKind::ORIGINAL);
 }
 
 void View::OnClickedFitPage(wxCommandEvent&)
 {
-	m_pFrame->SetImageResizeMode(ImageSizeMode::FIT_PAGE);
+	m_pFrame->SetImageViewMode(ImageViewModeKind::FIT_PAGE);
 }
 
 void View::OnClickedFitWidth(wxCommandEvent&)
 {
-	m_pFrame->SetImageResizeMode(ImageSizeMode::FIT_WIDTH);
+	m_pFrame->SetImageViewMode(ImageViewModeKind::FIT_WIDTH);
 }
 
 BEGIN_EVENT_TABLE(View, wxEvtHandler)
