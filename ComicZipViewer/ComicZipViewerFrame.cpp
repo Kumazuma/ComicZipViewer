@@ -394,7 +394,7 @@ void ComicZipViewerFrame::OnShowControlPanel(wxCommandEvent& event)
 		const int64_t diff = current - latestTick;
 		latestTick = current;
 		float delta = ((diff * 4096ll) / frequency) * ( 1.f / 4096.f);
-		m_alphaControlPanel += delta * 40.f;
+		m_alphaControlPanel += delta * 20.f;
 		Render();
 		wxYieldIfNeeded();
 	}
@@ -417,7 +417,7 @@ void ComicZipViewerFrame::OnHideControlPanel(wxCommandEvent& event)
 		const int64_t diff = current - latestTick;
 		latestTick = current;
 		float delta = ((diff * 4096ll) / frequency) * ( 1.f / 4096.f);
-		m_alphaControlPanel -= delta * 40.f;
+		m_alphaControlPanel -= delta * 20.f;
 		Render();
 		wxYieldIfNeeded();
 	}
@@ -788,6 +788,7 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 		}
 		else if(isOverScroll)
 		{
+			m_center.y = m_movableCenterRange.height * m_center.y / abs(m_center.y);
 			wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
 			event.SetEventObject(this);
 			if( m_center.y  > 0.f)
