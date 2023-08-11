@@ -36,10 +36,12 @@ void View::OnMenu(wxCommandEvent& evt)
 		if (!app.OpenFile(path))
 			return;
 
+		const int pageCount = app.GetPageCount();
+		const int pageNumber = app.GetCurrentPageNumber();
 		wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
 		m_pFrame->Freeze();
 		m_pFrame->ShowImage(image);
-		m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s"), app.GetCurrentPageName()));
+		m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
 		m_pFrame->SetSeekBarPos(0);
 		m_pFrame->Thaw();
 	}
@@ -78,17 +80,18 @@ void View::OnKeyDown(wxKeyEvent& evt)
 		return;
 	}
 
-	if(app.GetCurrentPageNumber() == latestPageNumber)
+	const int pageCount = app.GetPageCount();
+	const int pageNumber = app.GetCurrentPageNumber();
+	if(pageNumber == latestPageNumber)
 	{
-
 		return;
 	}
 
-	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+	wxImage image = app.GetDecodedImage(pageNumber);
 	m_pFrame->Freeze();
 	m_pFrame->ShowImage(image);
-	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s") , app.GetCurrentPageName()));
-	m_pFrame->SetSeekBarPos(app.GetCurrentPageNumber());
+	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
+	m_pFrame->SetSeekBarPos(pageNumber);
 	m_pFrame->Thaw();
 }
 
@@ -96,10 +99,12 @@ void View::OnSeek(wxScrollEvent& evt)
 {
 	auto& app = wxGetApp();
 	app.MovePage(evt.GetPosition());
-	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+	const int pageCount = app.GetPageCount();
+	const int pageNumber = app.GetCurrentPageNumber();
+	wxImage image = app.GetDecodedImage(pageNumber);
 	m_pFrame->Freeze();
 	m_pFrame->ShowImage(image);
-	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s") , app.GetCurrentPageName()));
+	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
 	m_pFrame->Thaw();
 }
 
@@ -123,34 +128,38 @@ void View::OnForward(wxCommandEvent&)
 	auto& app = wxGetApp();
 	int latestPageNumber = app.GetCurrentPageNumber();
 	app.MoveNextPage();
-	if ( app.GetCurrentPageNumber() == latestPageNumber )
+	const int pageCount = app.GetPageCount();
+	const int pageNumber = app.GetCurrentPageNumber();
+	if ( pageNumber == latestPageNumber )
 	{
 		return;
 	}
 
-	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+	wxImage image = app.GetDecodedImage(pageNumber);
 	m_pFrame->Freeze();
 	m_pFrame->ShowImage(image);
-	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s") , app.GetCurrentPageName()));
-	m_pFrame->SetSeekBarPos(app.GetCurrentPageNumber());
+	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
+	m_pFrame->SetSeekBarPos(pageNumber);
 	m_pFrame->Thaw();
 }
 
 void View::OnBackward(wxCommandEvent&)
 {
 	auto& app = wxGetApp();
-	int latestPageNumber = app.GetCurrentPageNumber();
+	const int pageCount = app.GetPageCount();
+	const int latestPageNumber = app.GetCurrentPageNumber();
 	app.MovePrevPage();
-	if ( app.GetCurrentPageNumber() == latestPageNumber )
+	const int pageNumber = app.GetCurrentPageNumber();
+	if ( pageNumber == latestPageNumber )
 	{
 		return;
 	}
 
-	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+	wxImage image = app.GetDecodedImage(pageNumber);
 	m_pFrame->Freeze();
 	m_pFrame->ShowImage(image);
-	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s") , app.GetCurrentPageName()));
-	m_pFrame->SetSeekBarPos(app.GetCurrentPageNumber());
+	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
+	m_pFrame->SetSeekBarPos(pageNumber);
 	m_pFrame->Thaw();
 }
 
