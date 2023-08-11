@@ -22,6 +22,10 @@ enum class ImageSizeMode
 	FIT_WIDTH
 };
 
+constexpr wxWindowID ID_BTN_FIT_WIDTH = wxID_HIGHEST + 1;
+constexpr wxWindowID ID_BTN_FIT_PAGE = wxID_HIGHEST + 2;
+constexpr wxWindowID ID_BTN_ORIGINAL = wxID_HIGHEST + 3;
+
 class ComicZipViewerFrame: public wxFrame
 {
 	wxDECLARE_EVENT_TABLE();
@@ -38,8 +42,6 @@ protected:
 	void OnSize(wxSizeEvent& evt);
 	void OnKeyDown(wxKeyEvent& evt);
 	void OnKeyUp(wxKeyEvent& evt);
-	void OnRButtonDown(wxMouseEvent& evt);
-	void OnRButtonUp(wxMouseEvent& evt);
 	void ResizeSwapChain(const wxSize clientRect);
 	void Render();
 	void Fullscreen();
@@ -55,6 +57,7 @@ protected:
 	void UpdateClientSize(const wxSize& sz);
 	void TryRender();
 	void GenerateIconBitmaps();
+	void OnContextMenu(wxContextMenuEvent& evt);
 private:
 	wxBitmapBundle m_iconFitPage;
 	wxBitmapBundle m_iconFitWidth;
@@ -78,16 +81,19 @@ private:
 	bool m_enterIsDown;
 	bool m_shownControlPanel;
 	float m_alphaControlPanel;
-	std::optional<wxPoint> m_posPrevRDown;
 	wxMenu* m_pContextMenu;
 	wxSize m_imageSize;
 	wxSize m_clientSize;
 	Rect m_panelRect;
 	Rect m_seekBarRect;
+	Rect m_fitWidthBtnRect;
+	Rect m_fitPageBtnRect;
+	Rect m_originalBtnRect;
 	std::optional<wxPoint> m_offsetSeekbarThumbPos;
 	int m_valueSeekBar;
 	bool m_willRender;
 	ImageSizeMode m_imageSizeMode;
+	wxWindowID m_latestHittenButtonId;
 };
 
 wxDECLARE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);

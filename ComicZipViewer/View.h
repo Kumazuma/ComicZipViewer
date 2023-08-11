@@ -14,6 +14,9 @@ protected:
 	void OnClose(wxCloseEvent& evt);
 	void OnKeyDown(wxKeyEvent& evt);
 	void OnSeek(wxScrollEvent& evt);
+	void OnClickedOriginal(wxCommandEvent&);
+	void OnClickedFitPage(wxCommandEvent&);
+	void OnClickedFitWidth(wxCommandEvent&);
 private:
 	ComicZipViewerFrame* m_pFrame;
 };

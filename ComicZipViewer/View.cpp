@@ -103,9 +103,30 @@ void View::OnSeek(wxScrollEvent& evt)
 	m_pFrame->Thaw();
 }
 
-BEGIN_EVENT_TABLE(View , wxEvtHandler)
-	EVT_MENU(wxID_ANY, View::OnMenu)
+void View::OnClickedOriginal(wxCommandEvent&)
+{
+	m_pFrame->SetImageResizeMode(ImageSizeMode::ORIGINAL);
+}
+
+void View::OnClickedFitPage(wxCommandEvent&)
+{
+	m_pFrame->SetImageResizeMode(ImageSizeMode::FIT_PAGE);
+}
+
+void View::OnClickedFitWidth(wxCommandEvent&)
+{
+	m_pFrame->SetImageResizeMode(ImageSizeMode::FIT_WIDTH);
+}
+
+BEGIN_EVENT_TABLE(View, wxEvtHandler)
+	EVT_MENU(ID_BTN_FIT_PAGE , View::OnClickedFitPage)
+	EVT_MENU(ID_BTN_FIT_WIDTH , View::OnClickedFitWidth)
+	EVT_MENU(ID_BTN_ORIGINAL , View::OnClickedOriginal)
 	EVT_CLOSE(View::OnClose)
 	EVT_KEY_DOWN(View::OnKeyDown)
 	EVT_SCROLL_THUMBTRACK(View::OnSeek)
+	EVT_BUTTON(ID_BTN_FIT_PAGE, View::OnClickedFitPage)
+	EVT_BUTTON(ID_BTN_FIT_WIDTH, View::OnClickedFitWidth)
+	EVT_BUTTON(ID_BTN_ORIGINAL, View::OnClickedOriginal)
+	EVT_MENU(wxID_ANY , View::OnMenu)
 END_EVENT_TABLE()

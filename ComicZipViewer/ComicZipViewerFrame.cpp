@@ -23,6 +23,7 @@ ComicZipViewerFrame::ComicZipViewerFrame()
 	, m_valueSeekBar()
 	, m_willRender(false)
 	, m_imageSizeMode()
+	, m_latestHittenButtonId(wxID_ANY)
 {
 }
 
@@ -36,14 +37,23 @@ ComicZipViewerFrame::~ComicZipViewerFrame()
 bool ComicZipViewerFrame::Create()
 {
 	auto ret = wxFrame::Create(nullptr, wxID_ANY, wxS("ComicZipViewer"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE | wxWANTS_CHARS);
-	UpdateClientSize(GetClientSize());
-	m_pContextMenu = new wxMenu();
-	m_pContextMenu->Append(wxID_OPEN, wxS("Open(&O)"));
-	m_pContextMenu->Append(wxID_CLOSE, wxS("Close(&C)"));
-	if (!ret)
+	if ( !ret )
 	{
 		return false;
 	}
+
+	UpdateClientSize(GetClientSize());
+	m_pContextMenu = new wxMenu();
+	m_pContextMenu->Append(wxID_OPEN, wxS("Open(&O)"));
+
+
+	auto* pImageSizingModeMenu = new wxMenu();
+	pImageSizingModeMenu->Append(ID_BTN_ORIGINAL , wxS("original size"));
+	pImageSizingModeMenu->Append(ID_BTN_FIT_WIDTH, wxS("Fit window's width"));
+	pImageSizingModeMenu->Append(ID_BTN_FIT_PAGE , wxS("Fit window's area"));
+	m_pContextMenu->AppendSubMenu(pImageSizingModeMenu , wxS("View modes"));
+
+	m_pContextMenu->Append(wxID_CLOSE , wxS("Close(&C)"));
 
 	wxBitmapBundle a;
 	HRESULT hRet;
@@ -252,26 +262,6 @@ void ComicZipViewerFrame::OnKeyUp(wxKeyEvent& evt)
 		m_enterIsDown = false;
 }
 
-void ComicZipViewerFrame::OnRButtonDown(wxMouseEvent& evt)
-{
-	m_posPrevRDown = evt.GetPosition();
-}
-
-void ComicZipViewerFrame::OnRButtonUp(wxMouseEvent& evt)
-{
-	auto posPrev = m_posPrevRDown;
-	m_posPrevRDown = std::nullopt;
-	if(!posPrev.has_value())
-		return;
-
-	auto diff = evt.GetPosition() - *posPrev;
-	auto l = diff.x * diff.x + diff.y * diff.y;
-	if(l > 16)
-		return;
-
-	PopupMenu(m_pContextMenu, evt.GetPosition());
-}
-
 void ComicZipViewerFrame::ResizeSwapChain(const wxSize clientRect)
 {
 	
@@ -326,29 +316,20 @@ void ComicZipViewerFrame::Render()
 			m_d2dContext->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(bar, thumbCenterY), SEEK_BAR_THUMB_RADIUS * scale , SEEK_BAR_THUMB_RADIUS * scale) , m_d2dBlueBrush.Get(), 0.5f, m_d2dSimpleStrokeStyle.Get());
 		}
 
-		Rect iconRect;
-		iconRect.left = m_panelRect.left + 10 * scale;
-		iconRect.right = iconRect.left + 64 * scale;
-		iconRect.top = seekBarRect.bottom + 10 * scale;
-		iconRect.bottom = iconRect.top + 64 * scale;
 		if(m_imageSizeMode == ImageSizeMode::ORIGINAL)
-			m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(iconRect, 5.f * scale, 5.f * scale), m_d2dWhiteBrush.Get());
+			m_d2dContext->FillRectangle(m_originalBtnRect, m_d2dWhiteBrush.Get());
 
-		m_d2dContext->DrawBitmap(std::get<1>(m_iconBitmapTable[wxS("ID_SVG_PAGE")]).Get(), iconRect);
+		m_d2dContext->DrawBitmap(std::get<1>(m_iconBitmapTable[wxS("ID_SVG_PAGE")]).Get(), m_originalBtnRect);
 
-		iconRect.left = iconRect.right + 10 * scale;
-		iconRect.right = iconRect.left + 64 * scale;
 		if(m_imageSizeMode == ImageSizeMode::FIT_PAGE)
-			m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(iconRect, 5.f * scale, 5.f * scale), m_d2dWhiteBrush.Get());
+			m_d2dContext->FillRectangle(m_fitPageBtnRect, m_d2dWhiteBrush.Get());
 
-		m_d2dContext->DrawBitmap(std::get<1>(m_iconBitmapTable[wxS("ID_SVG_FIT_PAGE")]).Get(), iconRect);
+		m_d2dContext->DrawBitmap(std::get<1>(m_iconBitmapTable[wxS("ID_SVG_FIT_PAGE")]).Get(), m_fitPageBtnRect);
 
-		iconRect.left = iconRect.right + 10 * scale;
-		iconRect.right = iconRect.left + 64 * scale;
 		if(m_imageSizeMode == ImageSizeMode::FIT_WIDTH)
-			m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(iconRect, 5.f * scale, 5.f * scale), m_d2dWhiteBrush.Get());
+			m_d2dContext->FillRectangle(m_fitWidthBtnRect, m_d2dWhiteBrush.Get());
 
-		m_d2dContext->DrawBitmap(std::get<1>(m_iconBitmapTable[wxS("ID_SVG_FIT_WIDTH")]).Get(), iconRect);
+		m_d2dContext->DrawBitmap(std::get<1>(m_iconBitmapTable[wxS("ID_SVG_FIT_WIDTH")]).Get(), m_fitWidthBtnRect);
 
 		m_d2dContext->PopLayer();
 	}
@@ -452,6 +433,7 @@ void ComicZipViewerFrame::OnMouseLeave(wxMouseEvent& evt)
 void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 {
 	auto pos = evt.GetPosition();
+	m_latestHittenButtonId = wxID_ANY;
 	if( m_offsetSeekbarThumbPos.has_value())
 	{
 		if(evt.LeftIsDown() )
@@ -516,6 +498,28 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 {
 	m_offsetSeekbarThumbPos = std::nullopt;
+	const wxPoint pos = evt.GetPosition();
+
+	m_latestHittenButtonId = wxID_ANY;
+	if( m_originalBtnRect.left <= pos.x && pos.x <= m_originalBtnRect.right
+		&& m_originalBtnRect.top <= pos.y && pos.y <= m_originalBtnRect.bottom )
+	{
+		m_latestHittenButtonId = ID_BTN_ORIGINAL;
+	}
+	else if( m_fitPageBtnRect.left <= pos.x && pos.x <= m_fitPageBtnRect.right
+		&& m_fitPageBtnRect.top <= pos.y && pos.y <= m_fitPageBtnRect.bottom )
+	{
+		m_latestHittenButtonId = ID_BTN_FIT_PAGE;
+	}
+	else if( m_fitWidthBtnRect.left <= pos.x && pos.x <= m_fitWidthBtnRect.right
+		&& m_fitWidthBtnRect.top <= pos.y && pos.y <= m_fitWidthBtnRect.bottom )
+	{
+		m_latestHittenButtonId = ID_BTN_FIT_WIDTH;
+	}
+
+	if( m_latestHittenButtonId != wxID_ANY)
+		return;
+
 	const auto pageCount = wxGetApp().GetPageCount();
 	if ( pageCount == 0 )
 		return;
@@ -524,7 +528,6 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 	if(maxValue == 0)
 		return;
 
-	const wxPoint pos = evt.GetPosition();
 	const float scale = GetDPIScaleFactor();
 	const Rect& seekBarRect = m_seekBarRect;
 	Rect seekBarJumpHitRect = seekBarRect;
@@ -565,6 +568,30 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 void ComicZipViewerFrame::OnLMouseUp(wxMouseEvent& evt)
 {
 	m_offsetSeekbarThumbPos = std::nullopt;
+	const auto pos = evt.GetPosition();
+	wxWindowID hitId = wxID_ANY;
+	if ( m_originalBtnRect.left <= pos.x && pos.x <= m_originalBtnRect.right
+	&& m_originalBtnRect.top <= pos.y && pos.y <= m_originalBtnRect.bottom )
+	{
+		hitId = ID_BTN_ORIGINAL;
+	}
+	else if ( m_fitPageBtnRect.left <= pos.x && pos.x <= m_fitPageBtnRect.right
+		&& m_fitPageBtnRect.top <= pos.y && pos.y <= m_fitPageBtnRect.bottom )
+	{
+		hitId = ID_BTN_FIT_PAGE;
+	}
+	else if ( m_fitWidthBtnRect.left <= pos.x && pos.x <= m_fitWidthBtnRect.right
+		&& m_fitWidthBtnRect.top <= pos.y && pos.y <= m_fitWidthBtnRect.bottom )
+	{
+		hitId = ID_BTN_FIT_WIDTH;
+	}
+
+	if ( m_latestHittenButtonId != hitId )
+		return;
+
+	wxCommandEvent clickedEvent(wxEVT_BUTTON , hitId);
+	clickedEvent.SetEventObject(this);
+	ProcessWindowEvent(clickedEvent);
 }
 
 void ComicZipViewerFrame::OnShown(wxShowEvent& evt)
@@ -598,6 +625,21 @@ void ComicZipViewerFrame::UpdateClientSize(const wxSize& sz)
 	m_seekBarRect.right = m_panelRect.right - SEEK_BAR_PADDING * scale;
 	m_seekBarRect.top = m_panelRect.top + SEEK_BAR_PADDING * scale;
 	m_seekBarRect.bottom = m_seekBarRect.top + SEEK_BAR_TRACK_HEIGHT * scale;
+
+	m_originalBtnRect.left = m_panelRect.left + 10 * scale;
+	m_originalBtnRect.right = m_originalBtnRect.left + 64 * scale;
+	m_originalBtnRect.top = m_seekBarRect.bottom + 10 * scale;
+	m_originalBtnRect.bottom = m_originalBtnRect.top + 64 * scale;
+
+	m_fitPageBtnRect.left = m_originalBtnRect.right;
+	m_fitPageBtnRect.right = m_fitPageBtnRect.left + 64 * scale;
+	m_fitPageBtnRect.top = m_seekBarRect.bottom + 10 * scale;
+	m_fitPageBtnRect.bottom = m_fitPageBtnRect.top + 64 * scale;
+
+	m_fitWidthBtnRect.left = m_fitPageBtnRect.right;
+	m_fitWidthBtnRect.right = m_fitWidthBtnRect.left + 64 * scale;
+	m_fitWidthBtnRect.top = m_seekBarRect.bottom + 10 * scale;
+	m_fitWidthBtnRect.bottom = m_fitWidthBtnRect.top + 64 * scale;
 }
 
 void ComicZipViewerFrame::TryRender()
@@ -666,6 +708,11 @@ void ComicZipViewerFrame::GenerateIconBitmaps()
 	}
 }
 
+void ComicZipViewerFrame::OnContextMenu(wxContextMenuEvent& evt)
+{
+	PopupMenu(m_pContextMenu , ScreenToClient(evt.GetPosition()));
+}
+
 void ComicZipViewerFrame::SetSeekBarPos(int value)
 {
 	m_valueSeekBar = value;
@@ -689,8 +736,6 @@ BEGIN_EVENT_TABLE(ComicZipViewerFrame , wxFrame)
 	EVT_SIZE(ComicZipViewerFrame::OnSize)
 	EVT_KEY_DOWN(ComicZipViewerFrame::OnKeyDown)
 	EVT_KEY_UP(ComicZipViewerFrame::OnKeyUp)
-	EVT_RIGHT_DOWN(ComicZipViewerFrame::OnRButtonDown)
-	EVT_RIGHT_UP(ComicZipViewerFrame::OnRButtonUp)
 	EVT_LEFT_DOWN(ComicZipViewerFrame::OnLMouseDown)
 	EVT_LEFT_UP(ComicZipViewerFrame::OnLMouseUp)
 	EVT_MOTION(ComicZipViewerFrame::OnMouseMove)
@@ -698,4 +743,5 @@ BEGIN_EVENT_TABLE(ComicZipViewerFrame , wxFrame)
 	EVT_COMMAND(wxID_ANY, wxEVT_SHOW_CONTROL_PANEL, ComicZipViewerFrame::OnShowControlPanel)
 	EVT_COMMAND(wxID_ANY, wxEVT_HIDE_CONTROL_PANEL, ComicZipViewerFrame::OnHideControlPanel)
 	EVT_DPI_CHANGED(ComicZipViewerFrame::OnDpiChanged)
+	EVT_CONTEXT_MENU(ComicZipViewerFrame::OnContextMenu)
 END_EVENT_TABLE()
