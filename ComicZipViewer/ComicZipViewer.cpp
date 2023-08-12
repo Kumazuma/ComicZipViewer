@@ -1,8 +1,6 @@
 #include "framework.h"
 #include "ComicZipViewer.h"
 
-#include <wx/filename.h>
-
 #include "View.h"
 #include "Model.h"
 #include "NaturalSortOrder.h"
@@ -13,18 +11,46 @@ ComicZipViewerApp::ComicZipViewerApp()
 	: m_pView(nullptr)
 	, m_pModel(nullptr)
 	, m_pPageCollection(nullptr)
+	, m_pSqlite(nullptr)
 {
 }
 
 bool ComicZipViewerApp::OnInit()
 {
-	wxInitAllImageHandlers();
+	if(!wxApp::OnInit())
+		return false;
 
-	// Test
+	SetAppName(wxS("ComicZipViewer"));
+	SetVendorName(wxS("ROW"));
+
+	wxInitAllImageHandlers();
+	if(!InitalizeDatabase())
+		return false;
+
+	auto& stdPaths = wxStandardPaths::Get();
+	wxFileName dataDirFileName(stdPaths.GetDataDir());
+	dataDirFileName.AppendDir(wxS("thumbnail"));
+	m_thunbnailDirPath = dataDirFileName.GetPath();
+	if(wxMkDir(m_thunbnailDirPath) != 0)
+		m_thunbnailDirPath.Clear();
+
 	m_pModel = new Model();
 	m_pView = new View();
 	m_pView->Show();
 	return true;
+}
+
+int ComicZipViewerApp::OnExit()
+{
+	int ret = wxApp::OnExit();
+	if(m_pSqlite != nullptr)
+		sqlite3_close(m_pSqlite);
+
+	sqlite3_shutdown();
+	if(sqlite3_temp_directory != nullptr)
+		sqlite3_free(sqlite3_temp_directory);
+
+	return ret;
 }
 
 int ComicZipViewerApp::OnRun()
@@ -195,4 +221,56 @@ void ComicZipViewerApp::MovePage(int idx)
 
 	m_pModel->currentPageNumber = idx;
 	m_pModel->pageName = m_pModel->pageList[ m_pModel->currentPageNumber ];
+}
+
+bool ComicZipViewerApp::InitalizeDatabase()
+{
+	if(sqlite3_initialize() != SQLITE_OK)
+		return false;
+
+	if(sqlite3_enable_shared_cache(true) != SQLITE_OK)
+		return false;
+
+	int ret = 0;
+	auto& stdPathInfo = wxStandardPaths::Get();
+	auto path = stdPathInfo.GetUserDataDir();
+	path.Append(wxS("bookmarks.sqlite3"));
+	auto utf8Str = path.ToUTF8();
+	wxFileName tempPath(stdPathInfo.GetUserDataDir());
+	tempPath.AppendDir(wxS("temp"));
+	auto tempPathStr = tempPath.GetPath();
+	wxMkDir(tempPathStr);
+	auto tempPathUtf8 = tempPathStr.ToUTF8();
+	sqlite3_win32_set_directory8(SQLITE_WIN32_TEMP_DIRECTORY_TYPE, tempPathUtf8.data());
+	if(sqlite3_open_v2(utf8Str.data(), &m_pSqlite, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE , nullptr) != SQLITE_OK)
+		return false;
+
+	// Check Tables
+	sqlite3_stmt* pStmt;
+	if(sqlite3_prepare(m_pSqlite, "PRAGMA user_version;", -1, &pStmt, nullptr) != SQLITE_OK)
+		return false;
+
+	if(sqlite3_step(pStmt) != SQLITE_OK)
+		return false;
+
+	const int version = sqlite3_column_int(pStmt, 0);
+	sqlite3_finalize(pStmt);
+	if(version == 0)
+	{
+		// TODO: 
+		// static const char* 
+		// Create Tables
+		char* errMsg;
+		// ret = sqlite3_exec(m_pSqlite, , nullptr, nullptr, &errMsg);
+	}
+	else
+	{
+		// Net now
+
+
+	}
+
+	// WIP: create tables or migrates tables
+
+	return true;
 }

@@ -85,6 +85,7 @@
     <CopyLocalProjectReference>true</CopyLocalProjectReference>
     <CopyLocalDebugSymbols>true</CopyLocalDebugSymbols>
     <CopyCppRuntimeToOutputDir>true</CopyCppRuntimeToOutputDir>
+    <LibraryPath>$(OutDir);$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -196,6 +197,11 @@
     </None>
     <None Include="star-svgrepo-com.svg" />
     <None Include="text-bullet-list-square-svgrepo-com.svg" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\sqlite\sqlite.vcxproj">
+      <Project>{b6a0db4c-d38b-4361-936a-93b63c3d7295}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -5,4 +5,7 @@
 #include <wrl.h>
 #include <vector>
 #include <optional>
+#include <sqlite3.h>
+#include <wx/filename.h>
+#include <wx/stdpaths.h>
 using namespace Microsoft::WRL;

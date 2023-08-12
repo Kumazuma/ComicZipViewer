@@ -9,6 +9,7 @@ wxDEFINE_EVENT(wxEVT_HIDE_CONTROL_PANEL, wxCommandEvent);
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "sqlite.lib")
 
 constexpr float SEEK_BAR_PADDING = 15.f;
 constexpr float SEEK_BAR_TRACK_HEIGHT = 5.f;
