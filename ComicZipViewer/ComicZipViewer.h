@@ -25,7 +25,7 @@ public:
 	void MovePage(int idx);
 private:
 	bool InitalizeDatabase();
-
+	void InsertPageNameForReopen(const wxString& prefix, const wxString& pageName);
 private:
 	View* m_pView;
 	Model* m_pModel;
@@ -35,6 +35,8 @@ private:
 	wxJPEGHandler m_jpegHandler;
 	sqlite3* m_pSqlite;
 	wxString m_thunbnailDirPath;
+	sqlite3_stmt* m_pStmtInsertLatestPage;
+	sqlite3_stmt* m_pStmtSelectLatestPage;
 };
 
 wxDECLARE_APP(ComicZipViewerApp);

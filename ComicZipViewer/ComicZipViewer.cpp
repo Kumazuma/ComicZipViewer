@@ -43,9 +43,38 @@ bool ComicZipViewerApp::OnInit()
 int ComicZipViewerApp::OnExit()
 {
 	int ret = wxApp::OnExit();
-	if(m_pSqlite != nullptr)
-		sqlite3_close(m_pSqlite);
+	if(m_pStmtInsertLatestPage != nullptr)
+	{
+		sqlite3_finalize(m_pStmtInsertLatestPage);
+	}
 
+	if(m_pStmtSelectLatestPage != nullptr)
+	{
+		sqlite3_finalize(m_pStmtSelectLatestPage);
+	}
+
+	if(m_pSqlite != nullptr)
+	{
+		sqlite3* pSqlite;
+		auto& stdPathInfo = wxStandardPaths::Get();
+		auto pathStr = stdPathInfo.GetUserDataDir();
+		wxFileName path(stdPathInfo.GetUserDataDir(), wxS("bookmarks.sqlite3"));
+		pathStr = path.GetFullPath();
+		auto utf8Str = pathStr.ToUTF8();
+		if(sqlite3_open_v2(utf8Str.data(), &pSqlite, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE , nullptr) != SQLITE_OK)
+			return false;
+
+		sqlite3_backup* pBackup = sqlite3_backup_init(pSqlite, "main", m_pSqlite, "main");
+		if(pBackup == nullptr)
+			return false;
+
+
+		(void)sqlite3_backup_step(pBackup, -1);
+		(void)sqlite3_backup_finish(pBackup);
+		sqlite3_close(pSqlite);
+		sqlite3_close(m_pSqlite);
+	}
+	
 	sqlite3_shutdown();
 	if(sqlite3_temp_directory != nullptr)
 		sqlite3_free(sqlite3_temp_directory);
@@ -56,6 +85,11 @@ int ComicZipViewerApp::OnExit()
 int ComicZipViewerApp::OnRun()
 {
 	int ret = wxApp::OnRun();
+	if(m_pPageCollection != nullptr)
+	{
+		InsertPageNameForReopen(m_pModel->openedPath, m_pModel->pageName);
+	}
+
 	delete m_pView;
 	delete m_pModel;
 	delete m_pPageCollection;
@@ -67,6 +101,11 @@ bool ComicZipViewerApp::OpenFile(const wxString& filePath)
 	auto newPageCollection = PageCollection::Create(filePath);
 	if(newPageCollection == nullptr)
 		return false;
+
+	if(m_pPageCollection != nullptr)
+	{
+		InsertPageNameForReopen(m_pModel->openedPath, m_pModel->pageName);
+	}
 
 	delete m_pPageCollection;
 	m_pPageCollection = newPageCollection;
@@ -120,6 +159,31 @@ bool ComicZipViewerApp::OpenFile(const wxString& filePath)
 
 	std::sort(m_pModel->pageList.begin(), m_pModel->pageList.end(), NaturalSortOrder{});
 	m_pModel->pageName = m_pModel->pageList.front();
+	{
+		int ret = 0;
+		auto prefix = m_pModel->openedPath.ToUTF8();
+		ret = sqlite3_bind_text(m_pStmtSelectLatestPage, 1, prefix.data(), -1, nullptr);
+		assert(ret == SQLITE_OK);
+
+		ret = sqlite3_step(m_pStmtSelectLatestPage);
+		if(ret == SQLITE_DONE)
+		{
+			
+		}
+		else if(ret == SQLITE_ROW)
+		{
+			auto pageName = wxString::FromUTF8((const char*)sqlite3_column_text(m_pStmtSelectLatestPage, 0));
+			auto it = std::find(m_pModel->pageList.begin(), m_pModel->pageList.end(), pageName);
+			if(it != m_pModel->pageList.end())
+			{
+				m_pModel->pageName = pageName;
+				m_pModel->currentPageNumber = it - m_pModel->pageList.begin();
+			}
+		}
+
+		sqlite3_reset(m_pStmtSelectLatestPage);
+	}
+
 	return true;
 }
 
@@ -232,25 +296,36 @@ bool ComicZipViewerApp::InitalizeDatabase()
 		return false;
 
 	int ret = 0;
+	sqlite3* pSqlite;
 	auto& stdPathInfo = wxStandardPaths::Get();
-	auto path = stdPathInfo.GetUserDataDir();
-	path.Append(wxS("bookmarks.sqlite3"));
-	auto utf8Str = path.ToUTF8();
-	wxFileName tempPath(stdPathInfo.GetUserDataDir());
-	tempPath.AppendDir(wxS("temp"));
-	auto tempPathStr = tempPath.GetPath();
-	wxMkDir(tempPathStr);
-	auto tempPathUtf8 = tempPathStr.ToUTF8();
-	sqlite3_win32_set_directory8(SQLITE_WIN32_TEMP_DIRECTORY_TYPE, tempPathUtf8.data());
-	if(sqlite3_open_v2(utf8Str.data(), &m_pSqlite, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE , nullptr) != SQLITE_OK)
+	auto pathStr = stdPathInfo.GetUserDataDir();
+	if(!wxDirExists(pathStr))
+		wxMkDir(pathStr);
+
+	wxFileName path(stdPathInfo.GetUserDataDir(), wxS("bookmarks.sqlite3"));
+	pathStr = path.GetFullPath();
+	auto utf8Str = pathStr.ToUTF8();
+	if(sqlite3_open_v2(utf8Str.data(), &pSqlite, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE , nullptr) != SQLITE_OK)
 		return false;
 
+	auto tempDbPath = wxFileName::CreateTempFileName(wxS("ComicZipViewer"));
+	auto tempDbPathUtf8 = tempDbPath.ToUTF8();
+	// copy to temporary db file
+	sqlite3_open_v2(tempDbPathUtf8.data(), &m_pSqlite, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE  | SQLITE_OPEN_PRIVATECACHE, nullptr);
+	sqlite3_backup* pBackup = sqlite3_backup_init(m_pSqlite, "main", pSqlite, "main");
+	if(pBackup == nullptr)
+		return false;
+
+
+	int r1 = sqlite3_backup_step(pBackup, -1);
+	int r2 = sqlite3_backup_finish(pBackup);
+	sqlite3_close(pSqlite);
 	// Check Tables
 	sqlite3_stmt* pStmt;
 	if(sqlite3_prepare(m_pSqlite, "PRAGMA user_version;", -1, &pStmt, nullptr) != SQLITE_OK)
 		return false;
 
-	if(sqlite3_step(pStmt) != SQLITE_OK)
+	if(sqlite3_step(pStmt) != SQLITE_ROW)
 		return false;
 
 	const int version = sqlite3_column_int(pStmt, 0);
@@ -258,19 +333,105 @@ bool ComicZipViewerApp::InitalizeDatabase()
 	if(version == 0)
 	{
 		// TODO: 
-		// static const char* 
-		// Create Tables
+		static const char* const SQL_CREATE_BOOKMARKS =
+R"(
+CREATE TABLE tb_bookmarks_v1 (
+	idx INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+	prefix TEXT KEY NOT NULL,
+	page_name TEXT,
+	thumbnail_path TEXT
+);
+)";
+
+		static const char* const SQL_CREATE_PAGE_LAST_READ =
+R"(
+CREATE TABLE tb_page_last_read_v1(
+	prefix TEXT PRIMARY KEY NOT NULL,
+	page_name TEXT
+);
+)";
+
 		char* errMsg;
+		ret = sqlite3_exec(m_pSqlite, SQL_CREATE_BOOKMARKS, nullptr, nullptr, &errMsg);
+		if(ret != SQLITE_OK)
+			return false;
+
+		ret = sqlite3_exec(m_pSqlite, SQL_CREATE_PAGE_LAST_READ, nullptr, nullptr, &errMsg);
+		if(ret != SQLITE_OK)
+			return false;
+
+		ret = sqlite3_exec(m_pSqlite, "PRAGMA user_version=1;", nullptr, nullptr, &errMsg);
+		if(ret != SQLITE_OK)
+			return false;
+		// Create Tables
+		
 		// ret = sqlite3_exec(m_pSqlite, , nullptr, nullptr, &errMsg);
 	}
-	else
+	else if(version == 1)
 	{
-		// Net now
+		// TODO Check validation
 
 
+	}
+	else if(version < 1)
+	{
+		// in future, migrates tables
 	}
 
 	// WIP: create tables or migrates tables
 
+	// Prepare SQL Queries
+
+	static constexpr char SQL_INSERT_PAGE_LATEST_READ[] =
+R"(
+INSERT OR REPLACE
+INTO tb_page_last_read_v1(
+	prefix,
+	page_name)
+VALUES (
+	?,
+	?);
+)";
+
+	ret = sqlite3_prepare(m_pSqlite, SQL_INSERT_PAGE_LATEST_READ, sizeof(SQL_INSERT_PAGE_LATEST_READ) - 1, &m_pStmtInsertLatestPage, nullptr);
+	if(ret != SQLITE_OK)
+	{
+		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));
+	}
+
+	assert(ret == SQLITE_OK);
+
+	static constexpr char SQL_SELECT_PAGE_LATEST_READ[] =
+R"(
+SELECT
+	page_name
+FROM
+	tb_page_last_read_v1
+WHERE
+	prefix = ?;
+)";
+	ret = sqlite3_prepare(m_pSqlite, SQL_SELECT_PAGE_LATEST_READ, sizeof(SQL_SELECT_PAGE_LATEST_READ) - 1, &m_pStmtSelectLatestPage, nullptr);
+	if(ret != SQLITE_OK)
+	{
+		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));
+	}
+
+	assert(ret == SQLITE_OK);
+
 	return true;
+}
+
+void ComicZipViewerApp::InsertPageNameForReopen(const wxString& prefix, const wxString& pageName)
+{
+	int ret;
+	ret = sqlite3_bind_text16(m_pStmtInsertLatestPage, 1, prefix.wx_str(), -1, nullptr);
+	assert(ret == SQLITE_OK);
+
+	ret = sqlite3_bind_text16(m_pStmtInsertLatestPage, 2, pageName.wx_str(), -1, nullptr);
+	assert(ret == SQLITE_OK);
+
+	ret = sqlite3_step(m_pStmtInsertLatestPage);
+	assert(ret == SQLITE_DONE);
+
+	sqlite3_reset(m_pStmtInsertLatestPage);
 }
