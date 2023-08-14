@@ -17,6 +17,7 @@ protected:
 	void OnClickedOriginal(wxCommandEvent&);
 	void OnClickedFitPage(wxCommandEvent&);
 	void OnClickedFitWidth(wxCommandEvent&);
+	void OnClickedMark(wxCommandEvent&);
 	void OnForward(wxCommandEvent&);
 	void OnBackward(wxCommandEvent&);
 private:

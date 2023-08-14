@@ -23,6 +23,8 @@ public:
 	void MovePrevPage();
 	void MoveNextPage();
 	void MovePage(int idx);
+	void AddMarked(int idx);
+	bool IsMarkedPage(int idx);
 private:
 	bool InitalizeDatabase();
 	void InsertPageNameForReopen(const wxString& prefix, const wxString& pageName);
@@ -33,10 +35,14 @@ private:
 	wxPNGHandler m_pngHandler;
 	wxGIFHandler m_gifHandler;
 	wxJPEGHandler m_jpegHandler;
+	wxImage m_latestLoadedImage;
 	sqlite3* m_pSqlite;
 	wxString m_thunbnailDirPath;
+	int m_latestLoadedImageIdx;
 	sqlite3_stmt* m_pStmtInsertLatestPage;
 	sqlite3_stmt* m_pStmtSelectLatestPage;
+	sqlite3_stmt* m_pStmtInsertBookmark;
+	sqlite3_stmt* m_pStmtSelectMarkedPages;
 };
 
 wxDECLARE_APP(ComicZipViewerApp);

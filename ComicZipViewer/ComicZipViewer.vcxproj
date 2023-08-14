@@ -167,9 +167,11 @@
     <ClInclude Include="NaturalSortOrder.h" />
     <ClInclude Include="PageCollection.h" />
     <ClInclude Include="PageCollectionZip.h" />
+    <ClInclude Include="RadioButtonGroup.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="SimpleBuffer.h" />
     <ClInclude Include="View.h" />
+    <ClInclude Include="VisualWidget.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ComicZipViewer.cpp" />
@@ -180,8 +182,10 @@
     <ClCompile Include="NaturalSortOrder.cpp" />
     <ClCompile Include="PageCollection.cpp" />
     <ClCompile Include="PageCollectionZip.cpp" />
+    <ClCompile Include="RadioButtonGroup.cpp" />
     <ClCompile Include="SimpleBuffer.cpp" />
     <ClCompile Include="View.cpp" />
+    <ClCompile Include="VisualWidget.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ComicZipViewer.rc" />

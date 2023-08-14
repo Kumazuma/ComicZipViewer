@@ -5,6 +5,7 @@
 #include "Model.h"
 #include "NaturalSortOrder.h"
 #include <wx/mstream.h>
+#include <wx/wfstream.h>
 wxIMPLEMENT_APP(ComicZipViewerApp);
 
 ComicZipViewerApp::ComicZipViewerApp()
@@ -12,6 +13,9 @@ ComicZipViewerApp::ComicZipViewerApp()
 	, m_pModel(nullptr)
 	, m_pPageCollection(nullptr)
 	, m_pSqlite(nullptr)
+	, m_pStmtInsertLatestPage(nullptr)
+	, m_pStmtSelectLatestPage(nullptr)
+	, m_pStmtInsertBookmark(nullptr)
 {
 }
 
@@ -28,12 +32,16 @@ bool ComicZipViewerApp::OnInit()
 		return false;
 
 	auto& stdPaths = wxStandardPaths::Get();
-	wxFileName dataDirFileName(stdPaths.GetDataDir());
+	wxFileName dataDirFileName(stdPaths.GetUserLocalDataDir(), wxS(""));
 	dataDirFileName.AppendDir(wxS("thumbnail"));
 	m_thunbnailDirPath = dataDirFileName.GetPath();
-	if(wxMkDir(m_thunbnailDirPath) != 0)
-		m_thunbnailDirPath.Clear();
-
+	wxFileName thumbnailDirName(m_thunbnailDirPath, wxS(""));
+	if(!thumbnailDirName.IsDir())
+	{
+		if(wxMkDir(m_thunbnailDirPath) != 0)
+			m_thunbnailDirPath.Clear();
+	}
+	
 	m_pModel = new Model();
 	m_pView = new View();
 	m_pView->Show();
@@ -53,12 +61,22 @@ int ComicZipViewerApp::OnExit()
 		sqlite3_finalize(m_pStmtSelectLatestPage);
 	}
 
+	if(m_pStmtInsertBookmark != nullptr)
+	{
+		sqlite3_finalize(m_pStmtInsertBookmark);
+	}
+
+	if(m_pStmtSelectMarkedPages != nullptr)
+	{
+		sqlite3_finalize(m_pStmtSelectMarkedPages);
+	}
+
 	if(m_pSqlite != nullptr)
 	{
 		sqlite3* pSqlite;
 		auto& stdPathInfo = wxStandardPaths::Get();
-		auto pathStr = stdPathInfo.GetUserDataDir();
-		wxFileName path(stdPathInfo.GetUserDataDir(), wxS("bookmarks.sqlite3"));
+		auto pathStr = stdPathInfo.GetUserLocalDataDir();
+		wxFileName path(stdPathInfo.GetUserLocalDataDir(), wxS("bookmarks.sqlite3"));
 		pathStr = path.GetFullPath();
 		auto utf8Str = pathStr.ToUTF8();
 		if(sqlite3_open_v2(utf8Str.data(), &pSqlite, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE , nullptr) != SQLITE_OK)
@@ -67,7 +85,6 @@ int ComicZipViewerApp::OnExit()
 		sqlite3_backup* pBackup = sqlite3_backup_init(pSqlite, "main", m_pSqlite, "main");
 		if(pBackup == nullptr)
 			return false;
-
 
 		(void)sqlite3_backup_step(pBackup, -1);
 		(void)sqlite3_backup_finish(pBackup);
@@ -158,6 +175,7 @@ bool ComicZipViewerApp::OpenFile(const wxString& filePath)
 	}
 
 	std::sort(m_pModel->pageList.begin(), m_pModel->pageList.end(), NaturalSortOrder{});
+	m_pModel->markedPageSet.clear();
 	m_pModel->pageName = m_pModel->pageList.front();
 	{
 		int ret = 0;
@@ -182,7 +200,20 @@ bool ComicZipViewerApp::OpenFile(const wxString& filePath)
 		}
 
 		sqlite3_reset(m_pStmtSelectLatestPage);
+
+		ret = sqlite3_bind_text(m_pStmtSelectMarkedPages, 1, prefix, -1, nullptr);
+		assert(ret == SQLITE_OK);
+
+		while((ret = sqlite3_step(m_pStmtSelectMarkedPages)) == SQLITE_ROW)
+		{
+			auto pageName = wxString::FromUTF8((const char*)sqlite3_column_text(m_pStmtSelectMarkedPages, 0));
+			m_pModel->markedPageSet.insert(pageName);
+		}
+
+		sqlite3_reset(m_pStmtSelectMarkedPages);
 	}
+
+
 
 	return true;
 }
@@ -240,6 +271,11 @@ wxImage ComicZipViewerApp::GetDecodedImage(uint32_t idx)
 		}
 	}
 
+	if(loaded)
+	{
+		m_latestLoadedImageIdx = idx;
+		m_latestLoadedImage = image;
+	}
 
 	delete buffer;
 
@@ -287,6 +323,62 @@ void ComicZipViewerApp::MovePage(int idx)
 	m_pModel->pageName = m_pModel->pageList[ m_pModel->currentPageNumber ];
 }
 
+void ComicZipViewerApp::AddMarked(int idx)
+{
+	wxImage image;
+	const wxString& pageName = m_pModel->pageList[idx];
+	if(m_pModel->markedPageSet.find(pageName) != m_pModel->markedPageSet.end())
+		return;
+
+	if(m_latestLoadedImageIdx != idx)
+	{
+		image = GetDecodedImage(idx);
+		
+	}
+	else
+	{
+		image = m_latestLoadedImage;
+	}
+
+	int thumbnailWidth;
+	int thumbnailHeight;
+	auto imageSize = image.GetSize();
+	if(imageSize.x > imageSize.y)
+	{
+		int ratio = (1024 * imageSize.y) / imageSize.x;
+		thumbnailWidth = 256;
+		thumbnailHeight = (ratio * 256) / 1024;
+	}
+	else
+	{
+		int ratio = (1024 * imageSize.x) / imageSize.y;
+		thumbnailHeight = 256;
+		thumbnailWidth = (ratio * 256) / 1024;
+	}
+
+	auto scaledImage = image.Scale(thumbnailWidth, thumbnailHeight);
+	wxFileName thumbnailFileName(m_thunbnailDirPath, wxS(""));
+	wxFile file;
+	thumbnailFileName.AssignTempFileName(m_thunbnailDirPath + wxS("/"), &file);
+	wxFileOutputStream oStream(file);
+	scaledImage.SaveFile(oStream, wxBITMAP_TYPE_JPEG);
+	auto thumbnailPath = thumbnailFileName.GetFullPath();
+	sqlite3_bind_text16(m_pStmtInsertBookmark, 1, m_pModel->openedPath.wx_str(), -1, nullptr);
+	sqlite3_bind_text16(m_pStmtInsertBookmark, 2, pageName.wx_str(), -1, nullptr);
+	sqlite3_bind_text16(m_pStmtInsertBookmark, 3, thumbnailPath.wx_str(), -1, nullptr);
+	int ret = sqlite3_step(m_pStmtInsertBookmark);
+	assert(ret == SQLITE_DONE);
+
+	sqlite3_reset(m_pStmtInsertBookmark);
+	m_pModel->markedPageSet.insert(pageName);
+}
+
+bool ComicZipViewerApp::IsMarkedPage(int idx)
+{
+	auto& name = m_pModel->pageList[idx];
+	return m_pModel->markedPageSet.find(name) != m_pModel->markedPageSet.end();
+}
+
 bool ComicZipViewerApp::InitalizeDatabase()
 {
 	if(sqlite3_initialize() != SQLITE_OK)
@@ -298,11 +390,11 @@ bool ComicZipViewerApp::InitalizeDatabase()
 	int ret = 0;
 	sqlite3* pSqlite;
 	auto& stdPathInfo = wxStandardPaths::Get();
-	auto pathStr = stdPathInfo.GetUserDataDir();
+	auto pathStr = stdPathInfo.GetUserLocalDataDir();
 	if(!wxDirExists(pathStr))
 		wxMkDir(pathStr);
 
-	wxFileName path(stdPathInfo.GetUserDataDir(), wxS("bookmarks.sqlite3"));
+	wxFileName path(stdPathInfo.GetUserLocalDataDir(), wxS("bookmarks.sqlite3"));
 	pathStr = path.GetFullPath();
 	auto utf8Str = pathStr.ToUTF8();
 	if(sqlite3_open_v2(utf8Str.data(), &pSqlite, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE , nullptr) != SQLITE_OK)
@@ -315,7 +407,6 @@ bool ComicZipViewerApp::InitalizeDatabase()
 	sqlite3_backup* pBackup = sqlite3_backup_init(m_pSqlite, "main", pSqlite, "main");
 	if(pBackup == nullptr)
 		return false;
-
 
 	int r1 = sqlite3_backup_step(pBackup, -1);
 	int r2 = sqlite3_backup_finish(pBackup);
@@ -338,8 +429,9 @@ R"(
 CREATE TABLE tb_bookmarks_v1 (
 	idx INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 	prefix TEXT KEY NOT NULL,
-	page_name TEXT,
-	thumbnail_path TEXT
+	page_name TEXT NOT NULL,
+	thumbnail_path TEXT,
+	UNIQUE(prefix, page_name)
 );
 )";
 
@@ -416,6 +508,41 @@ WHERE
 		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));
 	}
 
+	assert(ret == SQLITE_OK);
+
+	static constexpr char SQL_INSERT_BOOKMARK[] =
+R"(
+INSERT OR IGNORE
+INTO
+	tb_bookmarks_v1(
+		prefix,
+		page_name,
+		thumbnail_path)
+VALUES
+	(?, ?, ?)
+)";
+	ret = sqlite3_prepare(m_pSqlite, SQL_INSERT_BOOKMARK, sizeof(SQL_INSERT_BOOKMARK) - 1, &m_pStmtInsertBookmark, nullptr);
+	if(ret != SQLITE_OK)
+	{
+		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));
+	}
+	assert(ret == SQLITE_OK);
+
+	static constexpr char SQL_SELECT_MARKED_PAGES[] =
+R"(
+SELECT
+	page_name
+FROM
+	tb_bookmarks_v1
+WHERE
+	prefix = ?
+)";
+
+	ret = sqlite3_prepare(m_pSqlite, SQL_SELECT_MARKED_PAGES, sizeof(SQL_SELECT_MARKED_PAGES) - 1, &m_pStmtSelectMarkedPages, nullptr);
+	if(ret != SQLITE_OK)
+	{
+		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));
+	}
 	assert(ret == SQLITE_OK);
 
 	return true;

@@ -23,8 +23,10 @@ enum class ImageViewModeKind
 };
 
 constexpr wxWindowID ID_BTN_FIT_WIDTH = wxID_HIGHEST + 1;
-constexpr wxWindowID ID_BTN_FIT_PAGE = wxID_HIGHEST + 2;
-constexpr wxWindowID ID_BTN_ORIGINAL = wxID_HIGHEST + 3;
+constexpr wxWindowID ID_BTN_FIT_PAGE = ID_BTN_FIT_WIDTH + 1;
+constexpr wxWindowID ID_BTN_ORIGINAL =ID_BTN_FIT_PAGE + 1;
+constexpr wxWindowID ID_BTN_BOOKMARK_VIEW = ID_BTN_ORIGINAL + 1;
+constexpr wxWindowID ID_BTN_ADD_MARK = ID_BTN_BOOKMARK_VIEW + 1;
 
 class ComicZipViewerFrame: public wxFrame
 {
@@ -37,6 +39,7 @@ public:
 	void ShowImage(const wxImage& image);
 	void SetSeekBarPos(int value);
 	void SetImageViewMode(ImageViewModeKind mode);
+	void SetPageIsMarked(bool);
 protected:
 	void DoThaw() override;
 	void OnSize(wxSizeEvent& evt);
@@ -93,10 +96,12 @@ private:
 	Rect m_fitPageBtnRect;
 	Rect m_originalBtnRect;
 	Rect m_bookmarkViewBtnRect;
+	Rect m_addMarkBtnRect;
 	std::optional<wxPoint> m_offsetSeekbarThumbPos;
 	int m_valueSeekBar;
 	bool m_willRender;
-	bool m_mouseOverBookmarksButton;
+	bool m_pageIsMarked;
+	wxWindowID m_idMouseOver;
 	ImageViewModeKind m_imageViewMode;
 	wxWindowID m_latestHittenButtonId;
 	D2D1_SIZE_F m_scaledImageSize;

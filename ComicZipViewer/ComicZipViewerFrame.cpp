@@ -17,9 +17,11 @@ constexpr float SEEK_BAR_THUMB_RADIUS = 10.f;
 constexpr std::wstring_view ID_SVG_FIT_PAGE = wxS("ID_SVG_FIT_PAGE");
 constexpr std::wstring_view ID_SVG_FIT_WIDTH = wxS("ID_SVG_FIT_WIDTH");
 constexpr std::wstring_view ID_SVG_PAGE = wxS("ID_SVG_PAGE");
-constexpr std::wstring_view ID_SVG_STAR = wxS("ID_SVG_STAR");
+constexpr std::wstring_view ID_SVG_MARKED_PAGE = wxS("ID_SVG_MARKED_PAGE");
+constexpr std::wstring_view ID_SVG_UNMARKED_PAGE = wxS("ID_SVG_UNMARKED_PAGE");
 constexpr std::wstring_view ID_SVG_TEXT_BULLET_LIST_SQUARE = wxS("ID_SVG_TEXT_BULLET_LIST_SQUARE");
 ComicZipViewerFrame::ComicZipViewerFrame()
+
 	: m_isSizing(false)
 	, m_enterIsDown(false)
 	, m_pContextMenu(nullptr)
@@ -30,7 +32,8 @@ ComicZipViewerFrame::ComicZipViewerFrame()
 	, m_willRender(false)
 	, m_imageViewMode()
 	, m_latestHittenButtonId(wxID_ANY)
-	, m_mouseOverBookmarksButton(false)
+	, m_idMouseOver(wxID_ANY)
+	, m_pageIsMarked(false)
 {
 }
 
@@ -131,8 +134,9 @@ bool ComicZipViewerFrame::Create()
 	m_iconBitmapInfo.emplace(ID_SVG_FIT_PAGE, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
 	m_iconBitmapInfo.emplace(ID_SVG_FIT_WIDTH, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
 	m_iconBitmapInfo.emplace(ID_SVG_PAGE, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
-	m_iconBitmapInfo.emplace(ID_SVG_STAR, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
+	m_iconBitmapInfo.emplace(ID_SVG_MARKED_PAGE, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
 	m_iconBitmapInfo.emplace(ID_SVG_TEXT_BULLET_LIST_SQUARE, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
+	m_iconBitmapInfo.emplace(ID_SVG_UNMARKED_PAGE, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
 	for(auto& pair: m_iconBitmapInfo)
 	{
 		auto& bundle = std::get<0>(pair.second);
@@ -345,10 +349,23 @@ void ComicZipViewerFrame::Render()
 
 		m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_fitWidthBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_FIT_WIDTH]));
 
-		if(m_mouseOverBookmarksButton)
+		if(m_idMouseOver == ID_BTN_BOOKMARK_VIEW)
 			m_d2dContext->FillRectangle(m_bookmarkViewBtnRect, m_d2dWhiteBrush.Get());
 
 		m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_bookmarkViewBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_TEXT_BULLET_LIST_SQUARE]));
+
+		if(m_idMouseOver == ID_BTN_ADD_MARK)
+			m_d2dContext->FillRectangle(m_addMarkBtnRect, m_d2dWhiteBrush.Get());
+
+		if(m_pageIsMarked)
+		{
+			m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_addMarkBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_MARKED_PAGE]));
+		}
+		else
+		{
+			m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_addMarkBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_UNMARKED_PAGE]));
+		}
+
 
 		m_d2dContext->PopLayer();
 	}
@@ -452,10 +469,16 @@ void ComicZipViewerFrame::OnMouseLeave(wxMouseEvent& evt)
 void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 {
 	auto pos = evt.GetPosition();
-	const bool prevMouseOverBookmarksButton = m_mouseOverBookmarksButton;
-	m_mouseOverBookmarksButton = m_bookmarkViewBtnRect.left <= pos.x && pos.x <= m_bookmarkViewBtnRect.right
-		&& m_bookmarkViewBtnRect.top <= pos.y && pos.y <= m_bookmarkViewBtnRect.bottom;
-	if(m_mouseOverBookmarksButton != prevMouseOverBookmarksButton)
+	const wxWindowID prevIdMouseOver = m_idMouseOver;
+	m_idMouseOver = wxID_ANY;
+	if(m_bookmarkViewBtnRect.left <= pos.x && pos.x <= m_bookmarkViewBtnRect.right
+		&& m_bookmarkViewBtnRect.top <= pos.y && pos.y <= m_bookmarkViewBtnRect.bottom)
+		m_idMouseOver = ID_BTN_BOOKMARK_VIEW;
+
+	if(m_addMarkBtnRect.left <= pos.x && pos.x <= m_addMarkBtnRect.right
+		&& m_addMarkBtnRect.top <= pos.y && pos.y <= m_addMarkBtnRect.bottom)
+		m_idMouseOver = ID_BTN_ADD_MARK;
+	if(prevIdMouseOver != m_idMouseOver)
 		TryRender();
 
 	if( m_offsetSeekbarThumbPos.has_value())
@@ -540,6 +563,11 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 	{
 		m_latestHittenButtonId = ID_BTN_FIT_WIDTH;
 	}
+	else if( m_addMarkBtnRect.left <= pos.x && pos.x <= m_addMarkBtnRect.right
+		&& m_addMarkBtnRect.top <= pos.y && pos.y <= m_addMarkBtnRect.bottom )
+	{
+		m_latestHittenButtonId = ID_BTN_ADD_MARK;
+	}
 
 	if( m_latestHittenButtonId != wxID_ANY)
 		return;
@@ -612,6 +640,11 @@ void ComicZipViewerFrame::OnLMouseUp(wxMouseEvent& evt)
 	{
 		hitId = ID_BTN_FIT_WIDTH;
 	}
+	else if( m_addMarkBtnRect.left <= pos.x && pos.x <= m_addMarkBtnRect.right
+		&& m_addMarkBtnRect.top <= pos.y && pos.y <= m_addMarkBtnRect.bottom )
+	{
+		hitId = ID_BTN_ADD_MARK;
+	}
 
 	if ( m_latestHittenButtonId != hitId )
 		return;
@@ -673,6 +706,11 @@ void ComicZipViewerFrame::UpdateClientSize(const wxSize& sz)
 	m_bookmarkViewBtnRect.left = m_bookmarkViewBtnRect.right - 64 * scale;
 	m_bookmarkViewBtnRect.top = m_seekBarRect.bottom + 10 * scale;
 	m_bookmarkViewBtnRect.bottom = m_bookmarkViewBtnRect.top + 64 * scale;
+
+	m_addMarkBtnRect.right = m_bookmarkViewBtnRect.left;
+	m_addMarkBtnRect.left = m_addMarkBtnRect.right - 64 * scale;
+	m_addMarkBtnRect.top = m_seekBarRect.bottom + 10 * scale;
+	m_addMarkBtnRect.bottom = m_addMarkBtnRect.top + 64 * scale;
 	UpdateScaledImageSize();
 }
 
@@ -875,6 +913,12 @@ void ComicZipViewerFrame::SetImageViewMode(ImageViewModeKind mode)
 {
 	m_imageViewMode = mode;
 	UpdateScaledImageSize();
+	TryRender();
+}
+
+void ComicZipViewerFrame::SetPageIsMarked(bool value)
+{
+	m_pageIsMarked = value;
 	TryRender();
 }
 

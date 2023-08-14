@@ -43,6 +43,10 @@ void View::OnMenu(wxCommandEvent& evt)
 		m_pFrame->ShowImage(image);
 		m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
 		m_pFrame->SetSeekBarPos(0);
+		m_pFrame->SetPageIsMarked(false);
+		if(app.IsMarkedPage(pageNumber))
+			m_pFrame->SetPageIsMarked(true);
+
 		m_pFrame->Thaw();
 	}
 	else if(eventId == wxID_CLOSE)
@@ -92,6 +96,10 @@ void View::OnKeyDown(wxKeyEvent& evt)
 	m_pFrame->ShowImage(image);
 	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
 	m_pFrame->SetSeekBarPos(pageNumber);
+	m_pFrame->SetPageIsMarked(false);
+	if(app.IsMarkedPage(pageNumber))
+		m_pFrame->SetPageIsMarked(true);
+
 	m_pFrame->Thaw();
 }
 
@@ -105,6 +113,10 @@ void View::OnSeek(wxScrollEvent& evt)
 	m_pFrame->Freeze();
 	m_pFrame->ShowImage(image);
 	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
+	m_pFrame->SetPageIsMarked(false);
+	if(app.IsMarkedPage(pageNumber))
+		m_pFrame->SetPageIsMarked(true);
+
 	m_pFrame->Thaw();
 }
 
@@ -121,6 +133,13 @@ void View::OnClickedFitPage(wxCommandEvent&)
 void View::OnClickedFitWidth(wxCommandEvent&)
 {
 	m_pFrame->SetImageViewMode(ImageViewModeKind::FIT_WIDTH);
+}
+
+void View::OnClickedMark(wxCommandEvent&)
+{
+	auto& app = wxGetApp();
+	app.AddMarked(app.GetCurrentPageNumber());
+	m_pFrame->SetPageIsMarked(true);
 }
 
 void View::OnForward(wxCommandEvent&)
@@ -140,6 +159,10 @@ void View::OnForward(wxCommandEvent&)
 	m_pFrame->ShowImage(image);
 	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
 	m_pFrame->SetSeekBarPos(pageNumber);
+	m_pFrame->SetPageIsMarked(false);
+	if(app.IsMarkedPage(pageNumber))
+		m_pFrame->SetPageIsMarked(true);
+
 	m_pFrame->Thaw();
 }
 
@@ -160,6 +183,10 @@ void View::OnBackward(wxCommandEvent&)
 	m_pFrame->ShowImage(image);
 	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
 	m_pFrame->SetSeekBarPos(pageNumber);
+	m_pFrame->SetPageIsMarked(false);
+	if(app.IsMarkedPage(pageNumber))
+		m_pFrame->SetPageIsMarked(true);
+
 	m_pFrame->Thaw();
 }
 
@@ -172,6 +199,7 @@ BEGIN_EVENT_TABLE(View, wxEvtHandler)
 	EVT_SCROLL_THUMBTRACK(View::OnSeek)
 	EVT_BUTTON(wxID_FORWARD, View::OnForward)
 	EVT_BUTTON(wxID_BACKWARD, View::OnBackward)
+	EVT_BUTTON(ID_BTN_ADD_MARK, View::OnClickedMark)
 	EVT_BUTTON(ID_BTN_FIT_PAGE, View::OnClickedFitPage)
 	EVT_BUTTON(ID_BTN_FIT_WIDTH, View::OnClickedFitWidth)
 	EVT_BUTTON(ID_BTN_ORIGINAL, View::OnClickedOriginal)

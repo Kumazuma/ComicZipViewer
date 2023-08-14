@@ -8,4 +8,5 @@
 #include <sqlite3.h>
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
+#include <unordered_map>
 using namespace Microsoft::WRL;
