@@ -2,6 +2,7 @@
 #define WX_PRECOMP
 #include <wx/wxprec.h>
 #include <wx/wx.h>
+#undef GetHwnd
 #include <wrl.h>
 #include <vector>
 #include <optional>

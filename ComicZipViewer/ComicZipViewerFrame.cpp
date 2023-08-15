@@ -44,8 +44,9 @@ ComicZipViewerFrame::~ComicZipViewerFrame()
 	delete m_pContextMenu;
 }
 
-bool ComicZipViewerFrame::Create()
+bool ComicZipViewerFrame::Create(wxEvtHandler* pView)
 {
+	m_pView = pView;
 	auto ret = wxFrame::Create(nullptr, wxID_ANY, wxS("ComicZipViewer"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE | wxWANTS_CHARS);
 	if ( !ret )
 	{
@@ -256,6 +257,27 @@ void ComicZipViewerFrame::OnSize(wxSizeEvent& evt)
 
 void ComicZipViewerFrame::OnKeyDown(wxKeyEvent& evt)
 {
+	wxCommandEvent event(wxEVT_BUTTON, wxID_ANY);
+	event.SetEventObject(this);
+	switch(evt.GetKeyCode())
+	{
+	case WXK_UP:
+		ScrollImageVertical(120);
+		return;
+	case WXK_DOWN:
+		ScrollImageVertical(-120);
+		return;
+
+	case WXK_LEFT:
+		event.SetId(wxID_BACKWARD);
+		m_pView->ProcessEvent(event);
+		return;
+	case WXK_RIGHT:
+		event.SetId(wxID_FORWARD);
+		m_pView->ProcessEvent(event);
+		return;
+	}
+
 	if(evt.GetKeyCode() == WXK_RETURN && evt.AltDown() && !m_enterIsDown)
 	{
 		m_enterIsDown = true;
@@ -510,7 +532,7 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 				auto scrollEvent = wxScrollEvent(wxEVT_SCROLL_THUMBTRACK , wxID_ANY , m_valueSeekBar , wxHORIZONTAL);
 				scrollEvent.SetEventObject(this);
 				scrollEvent.ResumePropagation(wxEVENT_PROPAGATE_MAX);
-				ProcessWindowEvent(scrollEvent);
+				m_pView->ProcessEvent(scrollEvent);
 			}
 
 			return;
@@ -548,6 +570,23 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 	const wxPoint pos = evt.GetPosition();
 
 	m_latestHittenButtonId = wxID_ANY;
+	
+	float xxyy[4]
+	{
+		static_cast<float>(pos.x),
+		static_cast<float>(pos.x),
+		static_cast<float>(pos.y),
+		static_cast<float>(pos.y)
+	};
+
+	float rect[4]
+	{
+		m_originalBtnRect.left,
+		m_originalBtnRect.right,
+		m_originalBtnRect.top,
+		m_originalBtnRect.bottom,
+	};
+
 	if( m_originalBtnRect.left <= pos.x && pos.x <= m_originalBtnRect.right
 		&& m_originalBtnRect.top <= pos.y && pos.y <= m_originalBtnRect.bottom )
 	{
@@ -568,6 +607,12 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 	{
 		m_latestHittenButtonId = ID_BTN_ADD_MARK;
 	}
+	else if( m_bookmarkViewBtnRect.left <= pos.x && pos.x <= m_bookmarkViewBtnRect.right
+		&& m_bookmarkViewBtnRect.top <= pos.y && pos.y <= m_bookmarkViewBtnRect.bottom )
+	{
+		m_latestHittenButtonId = ID_BTN_BOOKMARK_VIEW;
+	}
+
 
 	if( m_latestHittenButtonId != wxID_ANY)
 		return;
@@ -600,8 +645,7 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 			TryRender();
 			auto scrollEvent = wxScrollEvent(wxEVT_SCROLL_THUMBTRACK , wxID_ANY , value , wxHORIZONTAL);
 			scrollEvent.SetEventObject(this);
-			scrollEvent.ResumePropagation(wxEVENT_PROPAGATE_MAX);
-			ProcessWindowEvent(scrollEvent);
+			m_pView->ProcessEvent(scrollEvent);
 		}
 	}
 	else
@@ -645,6 +689,11 @@ void ComicZipViewerFrame::OnLMouseUp(wxMouseEvent& evt)
 	{
 		hitId = ID_BTN_ADD_MARK;
 	}
+	else if( m_bookmarkViewBtnRect.left <= pos.x && pos.x <= m_bookmarkViewBtnRect.right
+		&& m_bookmarkViewBtnRect.top <= pos.y && pos.y <= m_bookmarkViewBtnRect.bottom )
+	{
+		hitId = ID_BTN_BOOKMARK_VIEW;
+	}
 
 	if ( m_latestHittenButtonId != hitId )
 		return;
@@ -652,7 +701,7 @@ void ComicZipViewerFrame::OnLMouseUp(wxMouseEvent& evt)
 	wxCommandEvent clickedEvent(wxEVT_BUTTON , hitId);
 	m_latestHittenButtonId = wxID_ANY;
 	clickedEvent.SetEventObject(this);
-	ProcessWindowEvent(clickedEvent);
+	m_pView->ProcessEvent(clickedEvent);
 }
 
 void ComicZipViewerFrame::OnShown(wxShowEvent& evt)
@@ -805,6 +854,7 @@ void ComicZipViewerFrame::GenerateIconBitmaps()
 
 void ComicZipViewerFrame::OnContextMenu(wxContextMenuEvent& evt)
 {
+	m_pContextMenu->SetEventHandler(m_pView);
 	PopupMenu(m_pContextMenu , ScreenToClient(evt.GetPosition()));
 }
 
@@ -860,34 +910,7 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 {
 	if(evt.GetWheelAxis() == wxMOUSE_WHEEL_VERTICAL)
 	{
-		auto r = evt.GetWheelRotation();
-		const float prevCenterY = m_center.y;
-		m_center.y += ( r / 120.f ) * m_clientSize.y * 0.15f;
-		float diff = abs(m_center.y) - m_movableCenterRange.height;
-		const bool isOverScroll = diff > 0;
-		if(isOverScroll && diff < (m_clientSize.y - 1) * 0.15f)
-		{
-			m_center.y = m_movableCenterRange.height * m_center.y / abs(m_center.y);
-		}
-		else if(isOverScroll)
-		{
-			m_center.y = m_movableCenterRange.height * m_center.y / abs(m_center.y);
-			wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
-			event.SetEventObject(this);
-			if(r > 0.f)
-			{
-				event.SetId(wxID_BACKWARD);
-			}
-			else
-			{
-				event.SetId(wxID_FORWARD);
-			}
-
-			ProcessWindowEvent(event);
-			return;
-		}
-
-		TryRender();
+		ScrollImageVertical(evt.GetWheelRotation());
 	}
 	else
 	{
@@ -900,6 +923,37 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 		
 		TryRender();
 	}
+}
+
+void ComicZipViewerFrame::ScrollImageVertical(int delta)
+{
+	const float prevCenterY = m_center.y;
+	m_center.y += ( delta / 120.f ) * m_clientSize.y * 0.15f;
+	float diff = abs(m_center.y) - m_movableCenterRange.height;
+	const bool isOverScroll = diff > 0;
+	if(isOverScroll && diff < (m_clientSize.y - 1) * 0.15f)
+	{
+		m_center.y = m_movableCenterRange.height * m_center.y / abs(m_center.y);
+	}
+	else if(isOverScroll)
+	{
+		m_center.y = m_movableCenterRange.height * m_center.y / abs(m_center.y);
+		wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
+		event.SetEventObject(this);
+		if(delta > 0.f)
+		{
+			event.SetId(wxID_BACKWARD);
+		}
+		else
+		{
+			event.SetId(wxID_FORWARD);
+		}
+
+		m_pView->ProcessEvent(event);
+		return;
+	}
+
+	TryRender();
 }
 
 void ComicZipViewerFrame::SetSeekBarPos(int value)

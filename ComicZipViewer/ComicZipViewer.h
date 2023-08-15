@@ -28,6 +28,7 @@ public:
 private:
 	bool InitalizeDatabase();
 	void InsertPageNameForReopen(const wxString& prefix, const wxString& pageName);
+
 private:
 	View* m_pView;
 	Model* m_pModel;
@@ -43,6 +44,7 @@ private:
 	sqlite3_stmt* m_pStmtSelectLatestPage;
 	sqlite3_stmt* m_pStmtInsertBookmark;
 	sqlite3_stmt* m_pStmtSelectMarkedPages;
+	sqlite3_stmt* m_pStmtSelectAllPrefix;
 };
 
 wxDECLARE_APP(ComicZipViewerApp);

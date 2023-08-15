@@ -71,6 +71,11 @@ int ComicZipViewerApp::OnExit()
 		sqlite3_finalize(m_pStmtSelectMarkedPages);
 	}
 
+	if(m_pStmtSelectAllPrefix != nullptr)
+	{
+		sqlite3_finalize(m_pStmtSelectAllPrefix);
+	}
+
 	if(m_pSqlite != nullptr)
 	{
 		sqlite3* pSqlite;
@@ -539,6 +544,24 @@ WHERE
 )";
 
 	ret = sqlite3_prepare(m_pSqlite, SQL_SELECT_MARKED_PAGES, sizeof(SQL_SELECT_MARKED_PAGES) - 1, &m_pStmtSelectMarkedPages, nullptr);
+	if(ret != SQLITE_OK)
+	{
+		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));
+	}
+	assert(ret == SQLITE_OK);
+
+	static constexpr char SQL_SELECT_ALL_PREFIX[] =
+R"(
+SELECT
+	prefix,
+	count(page_name)
+FROM
+	tb_bookmarks_v1
+GROUP BY
+	prefix
+)";
+
+	ret = sqlite3_prepare(m_pSqlite, SQL_SELECT_ALL_PREFIX, sizeof(SQL_SELECT_ALL_PREFIX) - 1, &m_pStmtSelectAllPrefix, nullptr);
 	if(ret != SQLITE_OK)
 	{
 		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));

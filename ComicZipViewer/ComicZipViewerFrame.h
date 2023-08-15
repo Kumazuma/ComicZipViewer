@@ -34,7 +34,7 @@ class ComicZipViewerFrame: public wxFrame
 public:
 	ComicZipViewerFrame();
 	~ComicZipViewerFrame() override;
-	bool Create();
+	bool Create(wxEvtHandler* pView);
 	WXLRESULT MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam) override;
 	void ShowImage(const wxImage& image);
 	void SetSeekBarPos(int value);
@@ -63,7 +63,9 @@ protected:
 	void OnContextMenu(wxContextMenuEvent& evt);
 	void UpdateScaledImageSize();
 	void OnMouseWheel(wxMouseEvent& evt);
+	void ScrollImageVertical(int delta);
 private:
+	wxEvtHandler* m_pView;
 	wxBitmapBundle m_iconFitPage;
 	wxBitmapBundle m_iconFitWidth;
 	ComPtr<ID3D11Device> m_d3dDevice;

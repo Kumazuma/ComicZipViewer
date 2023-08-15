@@ -3,6 +3,7 @@
 
 #include "ComicZipViewer.h"
 #include "ComicZipViewerFrame.h"
+#include "BookmarksDialog.h"
 
 View::View()
 	: m_pFrame(nullptr)
@@ -10,14 +11,16 @@ View::View()
 
 }
 
+View::~View()
+{
+}
+
 void View::Show()
 {
 	m_pFrame = new ComicZipViewerFrame();
-	if(!m_pFrame->Create())
+	if(!m_pFrame->Create(this))
 		return;
 
-	SetNextHandler(m_pFrame);
-	m_pFrame->SetEventHandler(this);
 	m_pFrame->Show();
 }
 
@@ -42,7 +45,7 @@ void View::OnMenu(wxCommandEvent& evt)
 		m_pFrame->Freeze();
 		m_pFrame->ShowImage(image);
 		m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
-		m_pFrame->SetSeekBarPos(0);
+		m_pFrame->SetSeekBarPos(pageNumber);
 		m_pFrame->SetPageIsMarked(false);
 		if(app.IsMarkedPage(pageNumber))
 			m_pFrame->SetPageIsMarked(true);
@@ -53,54 +56,6 @@ void View::OnMenu(wxCommandEvent& evt)
 	{
 		m_pFrame->Close();
 	}
-}
-
-void View::OnClose(wxCloseEvent& evt)
-{
-	evt.Skip();
-	m_pFrame->SetEventHandler(m_pFrame);
-	SetNextHandler(nullptr);
-	m_pFrame->Destroy();
-}
-
-void View::OnKeyDown(wxKeyEvent& evt)
-{
-	evt.Skip();
-	if ( evt.GetEventObject() != m_pFrame )
-		return;
-
-	auto& app = wxGetApp();
-	int latestPageNumber = app.GetCurrentPageNumber();
-	switch( evt.GetKeyCode() )
-	{
-	case WXK_LEFT:
-		app.MovePrevPage();
-		break;
-	case WXK_RIGHT:
-		app.MoveNextPage();
-		break;
-
-	default:
-		return;
-	}
-
-	const int pageCount = app.GetPageCount();
-	const int pageNumber = app.GetCurrentPageNumber();
-	if(pageNumber == latestPageNumber)
-	{
-		return;
-	}
-
-	wxImage image = app.GetDecodedImage(pageNumber);
-	m_pFrame->Freeze();
-	m_pFrame->ShowImage(image);
-	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
-	m_pFrame->SetSeekBarPos(pageNumber);
-	m_pFrame->SetPageIsMarked(false);
-	if(app.IsMarkedPage(pageNumber))
-		m_pFrame->SetPageIsMarked(true);
-
-	m_pFrame->Thaw();
 }
 
 void View::OnSeek(wxScrollEvent& evt)
@@ -190,15 +145,27 @@ void View::OnBackward(wxCommandEvent&)
 	m_pFrame->Thaw();
 }
 
-BEGIN_EVENT_TABLE(View, wxEvtHandler)
+void View::OnClickedBookmarks(wxCommandEvent&)
+{
+	BookmarksDialog diloag;
+	if(!diloag.Create(m_pFrame, wxID_ANY, this))
+		return;
+
+	const int id = diloag.ShowModal();
+	if(id != wxID_OK)
+		return;
+
+
+}
+
+BEGIN_EVENT_TABLE(View , wxEvtHandler)
 	EVT_MENU(ID_BTN_FIT_PAGE , View::OnClickedFitPage)
 	EVT_MENU(ID_BTN_FIT_WIDTH , View::OnClickedFitWidth)
 	EVT_MENU(ID_BTN_ORIGINAL , View::OnClickedOriginal)
-	EVT_CLOSE(View::OnClose)
-	EVT_KEY_DOWN(View::OnKeyDown)
 	EVT_SCROLL_THUMBTRACK(View::OnSeek)
 	EVT_BUTTON(wxID_FORWARD, View::OnForward)
 	EVT_BUTTON(wxID_BACKWARD, View::OnBackward)
+	EVT_BUTTON(ID_BTN_BOOKMARK_VIEW, View::OnClickedBookmarks)
 	EVT_BUTTON(ID_BTN_ADD_MARK, View::OnClickedMark)
 	EVT_BUTTON(ID_BTN_FIT_PAGE, View::OnClickedFitPage)
 	EVT_BUTTON(ID_BTN_FIT_WIDTH, View::OnClickedFitWidth)

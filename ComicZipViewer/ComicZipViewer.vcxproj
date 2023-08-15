@@ -158,6 +158,7 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="BookmarksDialog.h" />
     <ClInclude Include="ComicZipViewer.h" />
     <ClInclude Include="ComicZipViewerFrame.h" />
     <ClInclude Include="framework.h" />
@@ -174,6 +175,7 @@
     <ClInclude Include="VisualWidget.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BookmarksDialog.cpp" />
     <ClCompile Include="ComicZipViewer.cpp" />
     <ClCompile Include="ComicZipViewerFrame.cpp" />
     <ClCompile Include="IAllocator.cpp" />
