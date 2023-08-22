@@ -2,12 +2,60 @@
 #include "BookmarksDialog.h"
 #include <wx/graphics.h>
 
-bool BookmarksDialog::Create(wxWindow* parent, wxWindowID winId, wxEvtHandler* pView)
+bool BookmarksDialog::Create(wxWindow* parent, wxWindowID winId, wxEvtHandler* pView, std::vector<std::tuple<wxString, wxString>>&& list)
 {
+	m_list = std::move(list);
 	m_pView = pView;
 	wxDialog::Create(parent, winId, wxS("Bookmarks"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
+	m_pTreeCtrl = new wxTreeCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTR_HAS_BUTTONS | wxTR_LINES_AT_ROOT | wxTR_HIDE_ROOT);
+	auto bSizer = new wxBoxSizer(wxVERTICAL);
+	bSizer->Add(m_pTreeCtrl, 1, wxEXPAND | wxALL, 5);
+	bSizer->Add(CreateButtonSizer(wxOK | wxCANCEL), 0, wxEXPAND | wxALL, 5);
+	auto rootId = m_pTreeCtrl->AddRoot(wxS(""));
 
+	std::unordered_map<wxString, wxTreeItemId> roots; // <prefix>
+	std::unordered_map<wxString, wxString> prefixTreeTextTable; // <NameWithExt, Prefix>
+	for(auto& tuple : m_list)
+	{
+		wxTreeItemId id;
+		auto& prefix = std::get<0>(tuple);
+		wxFileName fileName(prefix);
+		auto nameWithExt = fileName.GetFullName();
+		auto& item = std::get<1>(tuple);
+		auto rootTableIt = roots.find(prefix);
+		if(rootTableIt == roots.end())
+		{
+			auto it2 = prefixTreeTextTable.find(nameWithExt);
+			wxString text;
+			if(it2 == prefixTreeTextTable.end())
+			{
+				prefixTreeTextTable.emplace(nameWithExt, prefix);
+				text = nameWithExt;
+			}
+			else
+			{
+				text = wxString::Format(wxS("%s(%s)"), fileName.GetFullName(), fileName.GetPath());
+				if(!it2->second.IsEmpty())
+				{
+					auto& prefix2 = it2->second;
+					fileName = wxFileName(prefix2);
+					id = roots[it2->second];
+					auto newName = wxString::Format(wxS("%s(%s)"), fileName.GetFullName(), fileName.GetPath());
+					it2->second.Clear();
+					m_pTreeCtrl->SetItemText(id, newName);
+				}
+			}
 
+			id = m_pTreeCtrl->AppendItem(rootId, text);
+			rootTableIt = roots.emplace(prefix, id).first;
+		}
+
+		id = rootTableIt->second;
+		m_pTreeCtrl->AppendItem(id, item);
+	}
+
+	SetSizer(bSizer);
+	Layout();
 	return true;
 }
 

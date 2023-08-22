@@ -10,6 +10,7 @@ class ComicZipViewerApp: public wxApp
 {
 public:
 	ComicZipViewerApp();
+	ComicZipViewerApp(const ComicZipViewerApp&) = delete;
 	bool OnInit() override;
 	int OnExit() override;
 	int OnRun() override;
@@ -25,6 +26,7 @@ public:
 	void MovePage(int idx);
 	void AddMarked(int idx);
 	bool IsMarkedPage(int idx);
+	std::vector<std::tuple<wxString, wxString>> GetAllMarkedPages();
 private:
 	bool InitalizeDatabase();
 	void InsertPageNameForReopen(const wxString& prefix, const wxString& pageName);
@@ -45,6 +47,7 @@ private:
 	sqlite3_stmt* m_pStmtInsertBookmark;
 	sqlite3_stmt* m_pStmtSelectMarkedPages;
 	sqlite3_stmt* m_pStmtSelectAllPrefix;
+	sqlite3_stmt* m_pStmtSelectAllMarkedPages;
 };
 
 wxDECLARE_APP(ComicZipViewerApp);

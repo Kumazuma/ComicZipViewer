@@ -21,7 +21,10 @@ protected:
 	void OnForward(wxCommandEvent&);
 	void OnBackward(wxCommandEvent&);
 	void OnClickedBookmarks(wxCommandEvent&);
+	void OnOpenedBookmark(wxCommandEvent&);
 private:
 	ComicZipViewerFrame* m_pFrame;
 	BookmarksDialog* m_pBookMarkDialog;
 };
+
+wxDECLARE_EVENT(wxEVT_OPEN_BOOKMARK, wxCommandEvent);

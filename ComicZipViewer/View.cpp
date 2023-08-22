@@ -5,6 +5,8 @@
 #include "ComicZipViewerFrame.h"
 #include "BookmarksDialog.h"
 
+wxDEFINE_EVENT(wxEVT_OPEN_BOOKMARK, wxCommandEvent);
+
 View::View()
 	: m_pFrame(nullptr)
 {
@@ -147,14 +149,21 @@ void View::OnBackward(wxCommandEvent&)
 
 void View::OnClickedBookmarks(wxCommandEvent&)
 {
+	auto& app = wxGetApp();
+	auto bookmarks = app.GetAllMarkedPages();
 	BookmarksDialog diloag;
-	if(!diloag.Create(m_pFrame, wxID_ANY, this))
+	if(!diloag.Create(m_pFrame, wxID_ANY, this, std::forward<decltype(bookmarks)>(bookmarks)))
 		return;
 
 	const int id = diloag.ShowModal();
 	if(id != wxID_OK)
 		return;
 
+
+}
+
+void View::OnOpenedBookmark(wxCommandEvent&)
+{
 
 }
 
@@ -170,5 +179,6 @@ BEGIN_EVENT_TABLE(View , wxEvtHandler)
 	EVT_BUTTON(ID_BTN_FIT_PAGE, View::OnClickedFitPage)
 	EVT_BUTTON(ID_BTN_FIT_WIDTH, View::OnClickedFitWidth)
 	EVT_BUTTON(ID_BTN_ORIGINAL, View::OnClickedOriginal)
+	EVT_COMMAND(wxID_ANY, wxEVT_OPEN_BOOKMARK, View::OnOpenedBookmark)
 	EVT_MENU(wxID_ANY , View::OnMenu)
 END_EVENT_TABLE()

@@ -1,6 +1,7 @@
 #pragma once
 #include "framework.h"
 #include <wx/wx.h>
+#include <wx/treectrl.h>
 #include <d2d1_3.h>
 
 class BookmarksDialog: public wxDialog
@@ -9,7 +10,7 @@ class BookmarksDialog: public wxDialog
 
 public:
 	BookmarksDialog() = default;
-	bool Create(wxWindow* parent, wxWindowID winId, wxEvtHandler* pView);
+	bool Create(wxWindow* parent, wxWindowID winId, wxEvtHandler* pView, std::vector<std::tuple<wxString, wxString>>&& list);
 	WXLRESULT MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam) override;
 
 protected:
@@ -19,6 +20,8 @@ protected:
 	void ResizeSwapChain(const wxSize& size);
 	void Render();
 private:
+	wxTreeCtrl* m_pTreeCtrl;
+	std::vector<std::tuple<wxString, wxString>> m_list;
 	wxEvtHandler* m_pView;
 	bool m_isSizing;
 	bool m_onPainting;

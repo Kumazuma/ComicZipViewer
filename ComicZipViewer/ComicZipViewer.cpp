@@ -76,6 +76,11 @@ int ComicZipViewerApp::OnExit()
 		sqlite3_finalize(m_pStmtSelectAllPrefix);
 	}
 
+	if(m_pStmtSelectAllMarkedPages != nullptr)
+	{
+		sqlite3_finalize(m_pStmtSelectAllMarkedPages);
+	}
+
 	if(m_pSqlite != nullptr)
 	{
 		sqlite3* pSqlite;
@@ -384,6 +389,27 @@ bool ComicZipViewerApp::IsMarkedPage(int idx)
 	return m_pModel->markedPageSet.find(name) != m_pModel->markedPageSet.end();
 }
 
+std::vector<std::tuple<wxString, wxString>> ComicZipViewerApp::GetAllMarkedPages()
+{
+	std::vector<std::tuple<wxString, wxString>> ret;
+	int retCode;
+	while((retCode = sqlite3_step(m_pStmtSelectAllMarkedPages)) == SQLITE_ROW)
+	{
+		auto prefix = sqlite3_column_text(m_pStmtSelectAllMarkedPages, 0);
+		auto pageName = sqlite3_column_text(m_pStmtSelectAllMarkedPages, 1);
+		ret.emplace_back(
+			std::make_tuple(
+				wxString::FromUTF8(reinterpret_cast<const char*>(prefix)),
+				wxString::FromUTF8(reinterpret_cast<const char*>(pageName))
+			)
+		);
+	}
+
+	sqlite3_reset(m_pStmtSelectAllMarkedPages);
+
+	return ret;
+}
+
 bool ComicZipViewerApp::InitalizeDatabase()
 {
 	if(sqlite3_initialize() != SQLITE_OK)
@@ -562,6 +588,22 @@ GROUP BY
 )";
 
 	ret = sqlite3_prepare(m_pSqlite, SQL_SELECT_ALL_PREFIX, sizeof(SQL_SELECT_ALL_PREFIX) - 1, &m_pStmtSelectAllPrefix, nullptr);
+	if(ret != SQLITE_OK)
+	{
+		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));
+	}
+	assert(ret == SQLITE_OK);
+
+	static constexpr char SQL_SELECT_ALL_MARKED_PAGES[] =
+R"(
+SELECT
+	prefix,
+	page_name
+FROM
+	tb_bookmarks_v1
+)";
+
+	ret = sqlite3_prepare(m_pSqlite, SQL_SELECT_ALL_MARKED_PAGES, sizeof(SQL_SELECT_ALL_MARKED_PAGES) - 1, &m_pStmtSelectAllMarkedPages, nullptr);
 	if(ret != SQLITE_OK)
 	{
 		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));
