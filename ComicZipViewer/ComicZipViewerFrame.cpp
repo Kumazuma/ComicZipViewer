@@ -9,12 +9,19 @@ wxDEFINE_EVENT(wxEVT_HIDE_CONTROL_PANEL, wxCommandEvent);
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "sqlite.lib")
 
 constexpr float SEEK_BAR_PADDING = 15.f;
 constexpr float SEEK_BAR_TRACK_HEIGHT = 5.f;
 constexpr float SEEK_BAR_THUMB_RADIUS = 10.f;
-
+constexpr std::wstring_view ID_SVG_FIT_PAGE = wxS("ID_SVG_FIT_PAGE");
+constexpr std::wstring_view ID_SVG_FIT_WIDTH = wxS("ID_SVG_FIT_WIDTH");
+constexpr std::wstring_view ID_SVG_PAGE = wxS("ID_SVG_PAGE");
+constexpr std::wstring_view ID_SVG_MARKED_PAGE = wxS("ID_SVG_MARKED_PAGE");
+constexpr std::wstring_view ID_SVG_UNMARKED_PAGE = wxS("ID_SVG_UNMARKED_PAGE");
+constexpr std::wstring_view ID_SVG_TEXT_BULLET_LIST_SQUARE = wxS("ID_SVG_TEXT_BULLET_LIST_SQUARE");
 ComicZipViewerFrame::ComicZipViewerFrame()
+
 	: m_isSizing(false)
 	, m_enterIsDown(false)
 	, m_pContextMenu(nullptr)
@@ -25,6 +32,8 @@ ComicZipViewerFrame::ComicZipViewerFrame()
 	, m_willRender(false)
 	, m_imageViewMode()
 	, m_latestHittenButtonId(wxID_ANY)
+	, m_idMouseOver(wxID_ANY)
+	, m_pageIsMarked(false)
 {
 }
 
@@ -35,8 +44,9 @@ ComicZipViewerFrame::~ComicZipViewerFrame()
 	delete m_pContextMenu;
 }
 
-bool ComicZipViewerFrame::Create()
+bool ComicZipViewerFrame::Create(wxEvtHandler* pView)
 {
+	m_pView = pView;
 	auto ret = wxFrame::Create(nullptr, wxID_ANY, wxS("ComicZipViewer"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE | wxWANTS_CHARS);
 	if ( !ret )
 	{
@@ -122,10 +132,13 @@ bool ComicZipViewerFrame::Create()
 	hRet = m_d2dContext->CreateLayer(&m_controlPanelLayer);
 	m_d2dContext->SetTarget(m_targetBitmap.Get());
 
-	m_iconBitmapTable.emplace(wxS("ID_SVG_FIT_PAGE"), std::tuple<wxBitmapBundle, ComPtr<ID2D1Bitmap1>>{});
-	m_iconBitmapTable.emplace(wxS("ID_SVG_FIT_WIDTH"), std::tuple<wxBitmapBundle, ComPtr<ID2D1Bitmap1>>{});
-	m_iconBitmapTable.emplace(wxS("ID_SVG_PAGE"), std::tuple<wxBitmapBundle, ComPtr<ID2D1Bitmap1>>{});
-	for(auto& pair: m_iconBitmapTable)
+	m_iconBitmapInfo.emplace(ID_SVG_FIT_PAGE, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
+	m_iconBitmapInfo.emplace(ID_SVG_FIT_WIDTH, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
+	m_iconBitmapInfo.emplace(ID_SVG_PAGE, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
+	m_iconBitmapInfo.emplace(ID_SVG_MARKED_PAGE, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
+	m_iconBitmapInfo.emplace(ID_SVG_TEXT_BULLET_LIST_SQUARE, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
+	m_iconBitmapInfo.emplace(ID_SVG_UNMARKED_PAGE, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
+	for(auto& pair: m_iconBitmapInfo)
 	{
 		auto& bundle = std::get<0>(pair.second);
 		bundle = wxBitmapBundle::FromSVGResource(pair.first.data(), wxSize(64, 64));
@@ -244,6 +257,27 @@ void ComicZipViewerFrame::OnSize(wxSizeEvent& evt)
 
 void ComicZipViewerFrame::OnKeyDown(wxKeyEvent& evt)
 {
+	wxCommandEvent event(wxEVT_BUTTON, wxID_ANY);
+	event.SetEventObject(this);
+	switch(evt.GetKeyCode())
+	{
+	case WXK_UP:
+		ScrollImageVertical(120);
+		return;
+	case WXK_DOWN:
+		ScrollImageVertical(-120);
+		return;
+
+	case WXK_LEFT:
+		event.SetId(wxID_BACKWARD);
+		m_pView->ProcessEvent(event);
+		return;
+	case WXK_RIGHT:
+		event.SetId(wxID_FORWARD);
+		m_pView->ProcessEvent(event);
+		return;
+	}
+
 	if(evt.GetKeyCode() == WXK_RETURN && evt.AltDown() && !m_enterIsDown)
 	{
 		m_enterIsDown = true;
@@ -325,17 +359,35 @@ void ComicZipViewerFrame::Render()
 		if(m_imageViewMode == ImageViewModeKind::ORIGINAL)
 			m_d2dContext->FillRectangle(m_originalBtnRect, m_d2dWhiteBrush.Get());
 
-		m_d2dContext->DrawBitmap(std::get<1>(m_iconBitmapTable[wxS("ID_SVG_PAGE")]).Get(), m_originalBtnRect);
+		m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_originalBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_PAGE]));
 
 		if(m_imageViewMode == ImageViewModeKind::FIT_PAGE)
 			m_d2dContext->FillRectangle(m_fitPageBtnRect, m_d2dWhiteBrush.Get());
 
-		m_d2dContext->DrawBitmap(std::get<1>(m_iconBitmapTable[wxS("ID_SVG_FIT_PAGE")]).Get(), m_fitPageBtnRect);
+		m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_fitPageBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_FIT_PAGE]));
 
 		if(m_imageViewMode == ImageViewModeKind::FIT_WIDTH)
 			m_d2dContext->FillRectangle(m_fitWidthBtnRect, m_d2dWhiteBrush.Get());
 
-		m_d2dContext->DrawBitmap(std::get<1>(m_iconBitmapTable[wxS("ID_SVG_FIT_WIDTH")]).Get(), m_fitWidthBtnRect);
+		m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_fitWidthBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_FIT_WIDTH]));
+
+		if(m_idMouseOver == ID_BTN_BOOKMARK_VIEW)
+			m_d2dContext->FillRectangle(m_bookmarkViewBtnRect, m_d2dWhiteBrush.Get());
+
+		m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_bookmarkViewBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_TEXT_BULLET_LIST_SQUARE]));
+
+		if(m_idMouseOver == ID_BTN_ADD_MARK)
+			m_d2dContext->FillRectangle(m_addMarkBtnRect, m_d2dWhiteBrush.Get());
+
+		if(m_pageIsMarked)
+		{
+			m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_addMarkBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_MARKED_PAGE]));
+		}
+		else
+		{
+			m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_addMarkBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_UNMARKED_PAGE]));
+		}
+
 
 		m_d2dContext->PopLayer();
 	}
@@ -439,6 +491,18 @@ void ComicZipViewerFrame::OnMouseLeave(wxMouseEvent& evt)
 void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 {
 	auto pos = evt.GetPosition();
+	const wxWindowID prevIdMouseOver = m_idMouseOver;
+	m_idMouseOver = wxID_ANY;
+	if(m_bookmarkViewBtnRect.left <= pos.x && pos.x <= m_bookmarkViewBtnRect.right
+		&& m_bookmarkViewBtnRect.top <= pos.y && pos.y <= m_bookmarkViewBtnRect.bottom)
+		m_idMouseOver = ID_BTN_BOOKMARK_VIEW;
+
+	if(m_addMarkBtnRect.left <= pos.x && pos.x <= m_addMarkBtnRect.right
+		&& m_addMarkBtnRect.top <= pos.y && pos.y <= m_addMarkBtnRect.bottom)
+		m_idMouseOver = ID_BTN_ADD_MARK;
+	if(prevIdMouseOver != m_idMouseOver)
+		TryRender();
+
 	if( m_offsetSeekbarThumbPos.has_value())
 	{
 		if(evt.LeftIsDown() )
@@ -468,7 +532,7 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 				auto scrollEvent = wxScrollEvent(wxEVT_SCROLL_THUMBTRACK , wxID_ANY , m_valueSeekBar , wxHORIZONTAL);
 				scrollEvent.SetEventObject(this);
 				scrollEvent.ResumePropagation(wxEVENT_PROPAGATE_MAX);
-				ProcessWindowEvent(scrollEvent);
+				m_pView->ProcessEvent(scrollEvent);
 			}
 
 			return;
@@ -506,6 +570,23 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 	const wxPoint pos = evt.GetPosition();
 
 	m_latestHittenButtonId = wxID_ANY;
+	
+	float xxyy[4]
+	{
+		static_cast<float>(pos.x),
+		static_cast<float>(pos.x),
+		static_cast<float>(pos.y),
+		static_cast<float>(pos.y)
+	};
+
+	float rect[4]
+	{
+		m_originalBtnRect.left,
+		m_originalBtnRect.right,
+		m_originalBtnRect.top,
+		m_originalBtnRect.bottom,
+	};
+
 	if( m_originalBtnRect.left <= pos.x && pos.x <= m_originalBtnRect.right
 		&& m_originalBtnRect.top <= pos.y && pos.y <= m_originalBtnRect.bottom )
 	{
@@ -521,6 +602,17 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 	{
 		m_latestHittenButtonId = ID_BTN_FIT_WIDTH;
 	}
+	else if( m_addMarkBtnRect.left <= pos.x && pos.x <= m_addMarkBtnRect.right
+		&& m_addMarkBtnRect.top <= pos.y && pos.y <= m_addMarkBtnRect.bottom )
+	{
+		m_latestHittenButtonId = ID_BTN_ADD_MARK;
+	}
+	else if( m_bookmarkViewBtnRect.left <= pos.x && pos.x <= m_bookmarkViewBtnRect.right
+		&& m_bookmarkViewBtnRect.top <= pos.y && pos.y <= m_bookmarkViewBtnRect.bottom )
+	{
+		m_latestHittenButtonId = ID_BTN_BOOKMARK_VIEW;
+	}
+
 
 	if( m_latestHittenButtonId != wxID_ANY)
 		return;
@@ -553,8 +645,7 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 			TryRender();
 			auto scrollEvent = wxScrollEvent(wxEVT_SCROLL_THUMBTRACK , wxID_ANY , value , wxHORIZONTAL);
 			scrollEvent.SetEventObject(this);
-			scrollEvent.ResumePropagation(wxEVENT_PROPAGATE_MAX);
-			ProcessWindowEvent(scrollEvent);
+			m_pView->ProcessEvent(scrollEvent);
 		}
 	}
 	else
@@ -593,6 +684,16 @@ void ComicZipViewerFrame::OnLMouseUp(wxMouseEvent& evt)
 	{
 		hitId = ID_BTN_FIT_WIDTH;
 	}
+	else if( m_addMarkBtnRect.left <= pos.x && pos.x <= m_addMarkBtnRect.right
+		&& m_addMarkBtnRect.top <= pos.y && pos.y <= m_addMarkBtnRect.bottom )
+	{
+		hitId = ID_BTN_ADD_MARK;
+	}
+	else if( m_bookmarkViewBtnRect.left <= pos.x && pos.x <= m_bookmarkViewBtnRect.right
+		&& m_bookmarkViewBtnRect.top <= pos.y && pos.y <= m_bookmarkViewBtnRect.bottom )
+	{
+		hitId = ID_BTN_BOOKMARK_VIEW;
+	}
 
 	if ( m_latestHittenButtonId != hitId )
 		return;
@@ -600,7 +701,7 @@ void ComicZipViewerFrame::OnLMouseUp(wxMouseEvent& evt)
 	wxCommandEvent clickedEvent(wxEVT_BUTTON , hitId);
 	m_latestHittenButtonId = wxID_ANY;
 	clickedEvent.SetEventObject(this);
-	ProcessWindowEvent(clickedEvent);
+	m_pView->ProcessEvent(clickedEvent);
 }
 
 void ComicZipViewerFrame::OnShown(wxShowEvent& evt)
@@ -650,6 +751,15 @@ void ComicZipViewerFrame::UpdateClientSize(const wxSize& sz)
 	m_fitWidthBtnRect.top = m_seekBarRect.bottom + 10 * scale;
 	m_fitWidthBtnRect.bottom = m_fitWidthBtnRect.top + 64 * scale;
 
+	m_bookmarkViewBtnRect.right = m_panelRect.right - 10 * scale;
+	m_bookmarkViewBtnRect.left = m_bookmarkViewBtnRect.right - 64 * scale;
+	m_bookmarkViewBtnRect.top = m_seekBarRect.bottom + 10 * scale;
+	m_bookmarkViewBtnRect.bottom = m_bookmarkViewBtnRect.top + 64 * scale;
+
+	m_addMarkBtnRect.right = m_bookmarkViewBtnRect.left;
+	m_addMarkBtnRect.left = m_addMarkBtnRect.right - 64 * scale;
+	m_addMarkBtnRect.top = m_seekBarRect.bottom + 10 * scale;
+	m_addMarkBtnRect.bottom = m_addMarkBtnRect.top + 64 * scale;
 	UpdateScaledImageSize();
 }
 
@@ -673,57 +783,78 @@ void ComicZipViewerFrame::TryRender()
 
 void ComicZipViewerFrame::GenerateIconBitmaps()
 {
-	for(auto& pair: m_iconBitmapTable)
+	wxSize totalSize{};
+	std::vector<wxImage> icons;
+	for(auto& pair: m_iconBitmapInfo)
 	{
 		auto& bundle = std::get<0>(pair.second);
 		auto image = bundle.GetBitmapFor(this).ConvertToImage();
-		auto size = image.GetSize();
-		HRESULT hr;
-		ComPtr<ID2D1Bitmap1> bitmap;
-		ComPtr<ID3D11Texture2D> texture2d;
-		ComPtr<IDXGISurface> surface;
-		D3D11_TEXTURE2D_DESC texture2dDesc{};
-		texture2dDesc.ArraySize = 1;
-		texture2dDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-		texture2dDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		texture2dDesc.MipLevels = 1;
-		texture2dDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		texture2dDesc.Usage = D3D11_USAGE_DYNAMIC;
-		texture2dDesc.SampleDesc.Count = 1;
-		texture2dDesc.Width = size.GetWidth();
-		texture2dDesc.Height = size.GetHeight();
-		hr = m_d3dDevice->CreateTexture2D(&texture2dDesc, nullptr, &texture2d);
-		hr = texture2d.As(&surface);
-		hr = m_d2dContext->CreateBitmapFromDxgiSurface(surface.Get(), D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_NONE, D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)), &bitmap);
-		if(FAILED(hr))
-		{
-			wxLogError(wxS("Failed to create D2D Bitmap"));
-			return;
-		}
+		icons.push_back(image);
+		auto& rect = std::get<1>(pair.second);
+		rect.left = 0;
+		rect.right = image.GetWidth();
+		rect.top = totalSize.y;
+		rect.bottom = rect.top + image.GetHeight();
 
-		D3D11_MAPPED_SUBRESOURCE mappedRect;
-		m_d3dContext->Map(texture2d.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedRect);
+		totalSize.y += image.GetHeight();
+		totalSize.x = std::max(totalSize.x, image.GetWidth());
+	}
+
+	// Create Atlas
+	HRESULT hr;
+	ComPtr<ID2D1Bitmap1> bitmap;
+	ComPtr<ID3D11Texture2D> atlasTexture2d;
+	ComPtr<IDXGISurface> atlasSurface;
+	D3D11_TEXTURE2D_DESC texture2dDesc{};
+	texture2dDesc.ArraySize = 1;
+	texture2dDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	texture2dDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	texture2dDesc.MipLevels = 1;
+	texture2dDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	texture2dDesc.Usage = D3D11_USAGE_DYNAMIC;
+	texture2dDesc.SampleDesc.Count = 1;
+	texture2dDesc.Width = totalSize.GetWidth();
+	texture2dDesc.Height = totalSize.GetHeight();
+	hr = m_d3dDevice->CreateTexture2D(&texture2dDesc, nullptr, &atlasTexture2d);
+	hr = atlasTexture2d.As(&atlasSurface);
+	D3D11_MAPPED_SUBRESOURCE mappedRect;
+	m_d3dContext->Map(atlasTexture2d.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedRect);
+	int y = 0;
+	for(auto& image: icons)
+	{
 		const wxByte* const rowData = image.GetData();
 		const wxByte* const alpha = image.GetAlpha();
 		const bool hasAlpha = image.HasAlpha();
-		for (int row = 0; row < size.GetHeight(); ++row)
+		const int height = image.GetHeight();
+		const int width = image.GetWidth();
+		for (int row = 0; row < height; ++row)
 		{
-			for (int cols = 0; cols < size.GetWidth(); ++cols)
+			for (int cols = 0; cols < width; ++cols)
 			{
-				const int idx = row * 3 * size.GetWidth() + cols * 3;
+				const int idx = row * 3 * width + cols * 3;
 				uint32_t rgba = 0;
-				rgba = rowData[idx] | rowData[idx + 1] << 8 | rowData[idx + 2] << 16 | (hasAlpha ? alpha[row * size.GetWidth() + cols] : 0xFF) << 24;
-				*reinterpret_cast<uint32_t*>((uint8_t*)mappedRect.pData + row * mappedRect.RowPitch + cols * 4) = rgba;
+				rgba = rowData[idx] | rowData[idx + 1] << 8 | rowData[idx + 2] << 16 | (hasAlpha ? alpha[row * width + cols] : 0xFF) << 24;
+				*reinterpret_cast<uint32_t*>((uint8_t*)mappedRect.pData + y * mappedRect.RowPitch + cols * 4) = rgba;
 			}
-		}
 
-		m_d3dContext->Unmap(texture2d.Get(), 0);
-		std::get<1>(pair.second) = bitmap;
+			y += 1;
+		}
 	}
+
+	m_d3dContext->Unmap(atlasTexture2d.Get(), 0);
+	hr = m_d2dContext->CreateBitmapFromDxgiSurface(atlasSurface.Get(), D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_NONE, D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)), &bitmap);
+	if(FAILED(hr))
+	{
+		wxLogError(wxS("Failed to create D2D Bitmap"));
+		return;
+	}
+
+	m_iconAtlas = bitmap;
 }
 
 void ComicZipViewerFrame::OnContextMenu(wxContextMenuEvent& evt)
 {
+	m_pContextMenu->SetEventHandler(m_pView);
 	PopupMenu(m_pContextMenu , ScreenToClient(evt.GetPosition()));
 }
 
@@ -779,34 +910,7 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 {
 	if(evt.GetWheelAxis() == wxMOUSE_WHEEL_VERTICAL)
 	{
-		auto r = evt.GetWheelRotation();
-		const float prevCenterY = m_center.y;
-		m_center.y += ( r / 120.f ) * m_clientSize.y * 0.15f;
-		float diff = abs(m_center.y) - m_movableCenterRange.height;
-		const bool isOverScroll = diff > 0;
-		if(isOverScroll && diff < (m_clientSize.y - 1) * 0.15f)
-		{
-			m_center.y = m_movableCenterRange.height * m_center.y / abs(m_center.y);
-		}
-		else if(isOverScroll)
-		{
-			m_center.y = m_movableCenterRange.height * m_center.y / abs(m_center.y);
-			wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
-			event.SetEventObject(this);
-			if( m_center.y  > 0.f)
-			{
-				event.SetId(wxID_BACKWARD);
-			}
-			else
-			{
-				event.SetId(wxID_FORWARD);
-			}
-
-			ProcessWindowEvent(event);
-			return;
-		}
-
-		TryRender();
+		ScrollImageVertical(evt.GetWheelRotation());
 	}
 	else
 	{
@@ -821,6 +925,37 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 	}
 }
 
+void ComicZipViewerFrame::ScrollImageVertical(int delta)
+{
+	const float prevCenterY = m_center.y;
+	m_center.y += ( delta / 120.f ) * m_clientSize.y * 0.15f;
+	float diff = abs(m_center.y) - m_movableCenterRange.height;
+	const bool isOverScroll = diff > 0;
+	if(isOverScroll && diff < (m_clientSize.y - 1) * 0.15f)
+	{
+		m_center.y = m_movableCenterRange.height * m_center.y / abs(m_center.y);
+	}
+	else if(isOverScroll)
+	{
+		m_center.y = m_movableCenterRange.height * m_center.y / abs(m_center.y);
+		wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
+		event.SetEventObject(this);
+		if(delta > 0.f)
+		{
+			event.SetId(wxID_BACKWARD);
+		}
+		else
+		{
+			event.SetId(wxID_FORWARD);
+		}
+
+		m_pView->ProcessEvent(event);
+		return;
+	}
+
+	TryRender();
+}
+
 void ComicZipViewerFrame::SetSeekBarPos(int value)
 {
 	m_valueSeekBar = value;
@@ -832,6 +967,12 @@ void ComicZipViewerFrame::SetImageViewMode(ImageViewModeKind mode)
 {
 	m_imageViewMode = mode;
 	UpdateScaledImageSize();
+	TryRender();
+}
+
+void ComicZipViewerFrame::SetPageIsMarked(bool value)
+{
+	m_pageIsMarked = value;
 	TryRender();
 }
 

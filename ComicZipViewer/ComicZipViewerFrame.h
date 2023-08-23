@@ -23,8 +23,10 @@ enum class ImageViewModeKind
 };
 
 constexpr wxWindowID ID_BTN_FIT_WIDTH = wxID_HIGHEST + 1;
-constexpr wxWindowID ID_BTN_FIT_PAGE = wxID_HIGHEST + 2;
-constexpr wxWindowID ID_BTN_ORIGINAL = wxID_HIGHEST + 3;
+constexpr wxWindowID ID_BTN_FIT_PAGE = ID_BTN_FIT_WIDTH + 1;
+constexpr wxWindowID ID_BTN_ORIGINAL =ID_BTN_FIT_PAGE + 1;
+constexpr wxWindowID ID_BTN_BOOKMARK_VIEW = ID_BTN_ORIGINAL + 1;
+constexpr wxWindowID ID_BTN_ADD_MARK = ID_BTN_BOOKMARK_VIEW + 1;
 
 class ComicZipViewerFrame: public wxFrame
 {
@@ -32,11 +34,12 @@ class ComicZipViewerFrame: public wxFrame
 public:
 	ComicZipViewerFrame();
 	~ComicZipViewerFrame() override;
-	bool Create();
+	bool Create(wxEvtHandler* pView);
 	WXLRESULT MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam) override;
 	void ShowImage(const wxImage& image);
 	void SetSeekBarPos(int value);
 	void SetImageViewMode(ImageViewModeKind mode);
+	void SetPageIsMarked(bool);
 protected:
 	void DoThaw() override;
 	void OnSize(wxSizeEvent& evt);
@@ -60,7 +63,9 @@ protected:
 	void OnContextMenu(wxContextMenuEvent& evt);
 	void UpdateScaledImageSize();
 	void OnMouseWheel(wxMouseEvent& evt);
+	void ScrollImageVertical(int delta);
 private:
+	wxEvtHandler* m_pView;
 	wxBitmapBundle m_iconFitPage;
 	wxBitmapBundle m_iconFitWidth;
 	ComPtr<ID3D11Device> m_d3dDevice;
@@ -78,7 +83,8 @@ private:
 	ComPtr<ID2D1StrokeStyle> m_d2dSimpleStrokeStyle;
 	ComPtr<ID2D1Bitmap1> m_bitmap;
 	ComPtr<ID2D1Layer> m_controlPanelLayer;
-	std::unordered_map<std::wstring_view, std::tuple<wxBitmapBundle, ComPtr<ID2D1Bitmap1>>> m_iconBitmapTable;
+	ComPtr<ID2D1Bitmap1> m_iconAtlas;
+	std::unordered_map<std::wstring_view, std::tuple<wxBitmapBundle, D2D1_RECT_F>> m_iconBitmapInfo;
 	bool m_isSizing;
 	bool m_enterIsDown;
 	bool m_shownControlPanel;
@@ -91,9 +97,13 @@ private:
 	Rect m_fitWidthBtnRect;
 	Rect m_fitPageBtnRect;
 	Rect m_originalBtnRect;
+	Rect m_bookmarkViewBtnRect;
+	Rect m_addMarkBtnRect;
 	std::optional<wxPoint> m_offsetSeekbarThumbPos;
 	int m_valueSeekBar;
 	bool m_willRender;
+	bool m_pageIsMarked;
+	wxWindowID m_idMouseOver;
 	ImageViewModeKind m_imageViewMode;
 	wxWindowID m_latestHittenButtonId;
 	D2D1_SIZE_F m_scaledImageSize;

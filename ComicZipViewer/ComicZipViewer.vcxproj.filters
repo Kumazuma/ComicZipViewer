@@ -51,6 +51,15 @@
     <ClInclude Include="NaturalSortOrder.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="VisualWidget.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="RadioButtonGroup.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="BookmarksDialog.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ComicZipViewer.cpp">
@@ -83,6 +92,15 @@
     <ClCompile Include="NaturalSortOrder.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="VisualWidget.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="RadioButtonGroup.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="BookmarksDialog.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ComicZipViewer.rc">
@@ -99,10 +117,14 @@
     <None Include="page-svgrepo-com.svg">
       <Filter>리소스 파일</Filter>
     </None>
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="page-fit-svgrepo-com.svg">
+    <None Include="text-bullet-list-square-svgrepo-com.svg">
       <Filter>리소스 파일</Filter>
-    </Resource>
+    </None>
+    <None Include="star-svgrepo-com.svg">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="page-fit-svgrepo-com.svg">
+      <Filter>리소스 파일</Filter>
+    </None>
   </ItemGroup>
 </Project>
