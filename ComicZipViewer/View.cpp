@@ -155,11 +155,26 @@ void View::OnClickedBookmarks(wxCommandEvent&)
 	if(!diloag.Create(m_pFrame, wxID_ANY, this, std::forward<decltype(bookmarks)>(bookmarks)))
 		return;
 
-	const int id = diloag.ShowModal();
-	if(id != wxID_OK)
+	if(diloag.ShowModal() != wxID_OK)
 		return;
 
+	const auto id = diloag.GetSelection();
+	if(id == 0)
+		return;
 
+	app.OpenBookmark(id);
+	const int pageNumber = app.GetCurrentPageNumber();
+	const int pageCount = app.GetPageCount();
+	wxImage image = app.GetDecodedImage(pageNumber);
+	m_pFrame->Freeze();
+	m_pFrame->ShowImage(image);
+	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
+	m_pFrame->SetSeekBarPos(pageNumber);
+	m_pFrame->SetPageIsMarked(false);
+	if(app.IsMarkedPage(pageNumber))
+		m_pFrame->SetPageIsMarked(true);
+
+	m_pFrame->Thaw();
 }
 
 void View::OnOpenedBookmark(wxCommandEvent&)

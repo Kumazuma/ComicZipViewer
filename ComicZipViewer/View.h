@@ -24,7 +24,6 @@ protected:
 	void OnOpenedBookmark(wxCommandEvent&);
 private:
 	ComicZipViewerFrame* m_pFrame;
-	BookmarksDialog* m_pBookMarkDialog;
 };
 
 wxDECLARE_EVENT(wxEVT_OPEN_BOOKMARK, wxCommandEvent);

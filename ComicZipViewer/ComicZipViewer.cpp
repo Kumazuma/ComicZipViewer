@@ -28,7 +28,7 @@ bool ComicZipViewerApp::OnInit()
 	SetVendorName(wxS("ROW"));
 
 	wxInitAllImageHandlers();
-	if(!InitalizeDatabase())
+	if(!InitializeDatabase())
 		return false;
 
 	auto& stdPaths = wxStandardPaths::Get();
@@ -81,6 +81,11 @@ int ComicZipViewerApp::OnExit()
 		sqlite3_finalize(m_pStmtSelectAllMarkedPages);
 	}
 
+	if(m_pStmtSelectMarkedPage != nullptr)
+	{
+		sqlite3_finalize(m_pStmtSelectMarkedPage);
+	}
+
 	if(m_pSqlite != nullptr)
 	{
 		sqlite3* pSqlite;
@@ -125,68 +130,12 @@ int ComicZipViewerApp::OnRun()
 
 bool ComicZipViewerApp::OpenFile(const wxString& filePath)
 {
-	auto newPageCollection = PageCollection::Create(filePath);
-	if(newPageCollection == nullptr)
-		return false;
-
-	if(m_pPageCollection != nullptr)
+	if(!Open(filePath))
 	{
-		InsertPageNameForReopen(m_pModel->openedPath, m_pModel->pageName);
-	}
-
-	delete m_pPageCollection;
-	m_pPageCollection = newPageCollection;
-	// TODO: Reset cache
-	m_pModel->openedPath = filePath;
-	m_pModel->pageList.clear();
-	m_pModel->currentPageNumber = 0;
-	m_pPageCollection->GetPageNames(&m_pModel->pageList);
-	auto it = m_pModel->pageList.begin();
-	while(it != m_pModel->pageList.end())
-	{
-		wxFileName fileName(*it);
-		auto ext = fileName.GetExt().Lower();
-		bool isImageFile = true;
-		do
-		{
-			if(ext == wxS("jpg"))
-				break;
-
-			if(ext == wxS("jpeg"))
-				break;
-
-			if(ext == wxS("jfif"))
-				break;
-
-			if(ext == wxS("png"))
-				break;
-
-			if(ext == wxS("gif"))
-				break;
-
-			isImageFile = false;
-		} while(false);
-
-		if(isImageFile)
-		{
-			it += 1;
-		}
-		else
-		{
-			it = m_pModel->pageList.erase(it);
-		}
-	}
-
-	if(m_pModel->pageList.empty())
-	{
-		delete m_pPageCollection;
-		m_pPageCollection = nullptr;
 		return false;
 	}
 
-	std::sort(m_pModel->pageList.begin(), m_pModel->pageList.end(), NaturalSortOrder{});
-	m_pModel->markedPageSet.clear();
-	m_pModel->pageName = m_pModel->pageList.front();
+
 	{
 		int ret = 0;
 		auto prefix = m_pModel->openedPath.ToUTF8();
@@ -201,29 +150,13 @@ bool ComicZipViewerApp::OpenFile(const wxString& filePath)
 		else if(ret == SQLITE_ROW)
 		{
 			auto pageName = wxString::FromUTF8((const char*)sqlite3_column_text(m_pStmtSelectLatestPage, 0));
-			auto it = std::find(m_pModel->pageList.begin(), m_pModel->pageList.end(), pageName);
-			if(it != m_pModel->pageList.end())
-			{
-				m_pModel->pageName = pageName;
-				m_pModel->currentPageNumber = it - m_pModel->pageList.begin();
-			}
+			MovePage(pageName);
 		}
 
 		sqlite3_reset(m_pStmtSelectLatestPage);
 
-		ret = sqlite3_bind_text(m_pStmtSelectMarkedPages, 1, prefix, -1, nullptr);
-		assert(ret == SQLITE_OK);
 
-		while((ret = sqlite3_step(m_pStmtSelectMarkedPages)) == SQLITE_ROW)
-		{
-			auto pageName = wxString::FromUTF8((const char*)sqlite3_column_text(m_pStmtSelectMarkedPages, 0));
-			m_pModel->markedPageSet.insert(pageName);
-		}
-
-		sqlite3_reset(m_pStmtSelectMarkedPages);
 	}
-
-
 
 	return true;
 }
@@ -307,8 +240,7 @@ void ComicZipViewerApp::MovePrevPage()
 	if ( m_pModel->currentPageNumber == 0 || m_pModel->pageList.empty())
 		return;
 
-	m_pModel->currentPageNumber -= 1;
-	m_pModel->pageName = m_pModel->pageList[m_pModel->currentPageNumber ];
+	MovePage(m_pModel->currentPageNumber - 1);
 }
 
 void ComicZipViewerApp::MoveNextPage()
@@ -317,8 +249,7 @@ void ComicZipViewerApp::MoveNextPage()
 	if ( m_pModel->pageList.size() <= num || m_pModel->pageList.empty() )
 		return;
 
-	m_pModel->currentPageNumber = num;
-	m_pModel->pageName = m_pModel->pageList[ m_pModel->currentPageNumber ];
+	MovePage(num);
 }
 
 void ComicZipViewerApp::MovePage(int idx)
@@ -389,16 +320,42 @@ bool ComicZipViewerApp::IsMarkedPage(int idx)
 	return m_pModel->markedPageSet.find(name) != m_pModel->markedPageSet.end();
 }
 
-std::vector<std::tuple<wxString, wxString>> ComicZipViewerApp::GetAllMarkedPages()
+void ComicZipViewerApp::OpenBookmark(int idx)
 {
-	std::vector<std::tuple<wxString, wxString>> ret;
+	wxString prefix;
+	wxString pageName;
+	sqlite3_bind_int(m_pStmtSelectMarkedPage, 1, idx);
+	if(sqlite3_step(m_pStmtSelectMarkedPage) == SQLITE_ROW)
+	{
+		prefix = wxString::FromUTF8(reinterpret_cast<const char*>(sqlite3_column_text(m_pStmtSelectMarkedPage, 0)));
+		pageName = wxString::FromUTF8(reinterpret_cast<const char*>(sqlite3_column_text(m_pStmtSelectMarkedPage, 1)));
+	}
+
+	sqlite3_reset(m_pStmtSelectMarkedPage);
+	if(prefix.IsEmpty() || pageName.IsEmpty())
+	{
+		return;
+	}
+
+	if(!Open(prefix))
+	{
+		return;
+	}
+
+	MovePage(pageName);
+}
+
+std::vector<std::tuple<int, wxString, wxString>> ComicZipViewerApp::GetAllMarkedPages()
+{
+	std::vector<std::tuple<int, wxString, wxString>> ret;
 	int retCode;
 	while((retCode = sqlite3_step(m_pStmtSelectAllMarkedPages)) == SQLITE_ROW)
 	{
-		auto prefix = sqlite3_column_text(m_pStmtSelectAllMarkedPages, 0);
-		auto pageName = sqlite3_column_text(m_pStmtSelectAllMarkedPages, 1);
+		auto prefix = sqlite3_column_text(m_pStmtSelectAllMarkedPages, 1);
+		auto pageName = sqlite3_column_text(m_pStmtSelectAllMarkedPages, 2);
 		ret.emplace_back(
 			std::make_tuple(
+				sqlite3_column_int(m_pStmtSelectAllMarkedPages, 0),
 				wxString::FromUTF8(reinterpret_cast<const char*>(prefix)),
 				wxString::FromUTF8(reinterpret_cast<const char*>(pageName))
 			)
@@ -410,7 +367,7 @@ std::vector<std::tuple<wxString, wxString>> ComicZipViewerApp::GetAllMarkedPages
 	return ret;
 }
 
-bool ComicZipViewerApp::InitalizeDatabase()
+bool ComicZipViewerApp::InitializeDatabase()
 {
 	if(sqlite3_initialize() != SQLITE_OK)
 		return false;
@@ -597,6 +554,7 @@ GROUP BY
 	static constexpr char SQL_SELECT_ALL_MARKED_PAGES[] =
 R"(
 SELECT
+	idx,
 	prefix,
 	page_name
 FROM
@@ -604,6 +562,24 @@ FROM
 )";
 
 	ret = sqlite3_prepare(m_pSqlite, SQL_SELECT_ALL_MARKED_PAGES, sizeof(SQL_SELECT_ALL_MARKED_PAGES) - 1, &m_pStmtSelectAllMarkedPages, nullptr);
+	if(ret != SQLITE_OK)
+	{
+		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));
+	}
+	assert(ret == SQLITE_OK);
+
+	static constexpr char SQL_SELECT_MARKED_PAGE[] =
+R"(
+SELECT
+	prefix,
+	page_name
+FROM
+	tb_bookmarks_v1
+WHERE
+	idx = ?
+)";
+
+	ret = sqlite3_prepare(m_pSqlite, SQL_SELECT_MARKED_PAGE, sizeof(SQL_SELECT_MARKED_PAGE) - 1, &m_pStmtSelectMarkedPage, nullptr);
 	if(ret != SQLITE_OK)
 	{
 		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));
@@ -626,4 +602,92 @@ void ComicZipViewerApp::InsertPageNameForReopen(const wxString& prefix, const wx
 	assert(ret == SQLITE_DONE);
 
 	sqlite3_reset(m_pStmtInsertLatestPage);
+}
+
+bool ComicZipViewerApp::Open(const wxString& filePath)
+{
+	auto newPageCollection = PageCollection::Create(filePath);
+	if(newPageCollection == nullptr)
+		return false;
+
+	if(m_pPageCollection != nullptr)
+	{
+		InsertPageNameForReopen(m_pModel->openedPath, m_pModel->pageName);
+	}
+
+	delete m_pPageCollection;
+	m_pPageCollection = newPageCollection;
+	// TODO: Reset cache
+	m_pModel->openedPath = filePath;
+	m_pModel->pageList.clear();
+	m_pModel->currentPageNumber = 0;
+	m_pPageCollection->GetPageNames(&m_pModel->pageList);
+	auto it = m_pModel->pageList.begin();
+	while(it != m_pModel->pageList.end())
+	{
+		wxFileName fileName(*it);
+		auto ext = fileName.GetExt().Lower();
+		bool isImageFile = true;
+		do
+		{
+			if(ext == wxS("jpg"))
+				break;
+
+			if(ext == wxS("jpeg"))
+				break;
+
+			if(ext == wxS("jfif"))
+				break;
+
+			if(ext == wxS("png"))
+				break;
+
+			if(ext == wxS("gif"))
+				break;
+
+			isImageFile = false;
+		} while(false);
+
+		if(isImageFile)
+		{
+			it += 1;
+		}
+		else
+		{
+			it = m_pModel->pageList.erase(it);
+		}
+	}
+
+	if(m_pModel->pageList.empty())
+	{
+		delete m_pPageCollection;
+		m_pPageCollection = nullptr;
+		return false;
+	}
+
+	std::sort(m_pModel->pageList.begin(), m_pModel->pageList.end(), NaturalSortOrder{});
+	m_pModel->markedPageSet.clear();
+	m_pModel->pageName = m_pModel->pageList.front();
+	auto prefix = filePath.ToUTF8();
+	int ret = sqlite3_bind_text(m_pStmtSelectMarkedPages, 1, prefix, -1, nullptr);
+	assert(ret == SQLITE_OK);
+
+	while((ret = sqlite3_step(m_pStmtSelectMarkedPages)) == SQLITE_ROW)
+	{
+		auto pageName = wxString::FromUTF8((const char*)sqlite3_column_text(m_pStmtSelectMarkedPages, 0));
+		m_pModel->markedPageSet.insert(pageName);
+	}
+
+	sqlite3_reset(m_pStmtSelectMarkedPages);
+
+	return true;
+}
+
+void ComicZipViewerApp::MovePage(const wxString& pageName)
+{
+	auto it = std::find(m_pModel->pageList.begin(), m_pModel->pageList.end(), pageName);
+	if(it != m_pModel->pageList.end())
+	{
+		MovePage(it - m_pModel->pageList.begin());
+	}
 }

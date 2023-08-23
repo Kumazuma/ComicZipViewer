@@ -2,7 +2,24 @@
 #include "BookmarksDialog.h"
 #include <wx/graphics.h>
 
-bool BookmarksDialog::Create(wxWindow* parent, wxWindowID winId, wxEvtHandler* pView, std::vector<std::tuple<wxString, wxString>>&& list)
+class TreeData: public wxTreeItemData
+{
+public:
+	TreeData(int idx)
+		: wxTreeItemData()
+		, m_idx(idx)
+	{
+		
+	}
+
+	int GetIdx() const { return m_idx; }
+
+private:
+	int m_idx;
+	
+};
+
+bool BookmarksDialog::Create(wxWindow* parent, wxWindowID winId, wxEvtHandler* pView, std::vector<std::tuple<int, wxString, wxString>>&& list)
 {
 	m_list = std::move(list);
 	m_pView = pView;
@@ -18,10 +35,10 @@ bool BookmarksDialog::Create(wxWindow* parent, wxWindowID winId, wxEvtHandler* p
 	for(auto& tuple : m_list)
 	{
 		wxTreeItemId id;
-		auto& prefix = std::get<0>(tuple);
+		auto& prefix = std::get<1>(tuple);
 		wxFileName fileName(prefix);
 		auto nameWithExt = fileName.GetFullName();
-		auto& item = std::get<1>(tuple);
+		auto& item = std::get<2>(tuple);
 		auto rootTableIt = roots.find(prefix);
 		if(rootTableIt == roots.end())
 		{
@@ -51,7 +68,8 @@ bool BookmarksDialog::Create(wxWindow* parent, wxWindowID winId, wxEvtHandler* p
 		}
 
 		id = rootTableIt->second;
-		m_pTreeCtrl->AppendItem(id, item);
+		id = m_pTreeCtrl->AppendItem(id, item);
+		m_pTreeCtrl->SetItemData(id, new TreeData(std::get<0>(tuple)));
 	}
 
 	SetSizer(bSizer);
@@ -123,7 +141,40 @@ void BookmarksDialog::Render()
 	delete context;
 }
 
+void BookmarksDialog::OnTreeItemActivated(wxTreeEvent& evt)
+{
+	auto id = evt.GetItem();
+	auto pItemData = m_pTreeCtrl->GetItemData(id);
+	if(pItemData == nullptr)
+		return;
+
+	this->EndModal(wxID_OK);
+}
+
+void BookmarksDialog::OnTreeSelectionChanged(wxTreeEvent& evt)
+{
+	m_selectedIdx = 0;
+	auto id = evt.GetItem();
+	if(!id.IsOk())
+	{
+		return;
+	}
+
+	auto pItemData = m_pTreeCtrl->GetItemData(id);
+	if(pItemData == nullptr)
+		return;
+
+	m_selectedIdx = static_cast<TreeData*>(pItemData)->GetIdx();
+}
+
+int BookmarksDialog::GetSelection() const
+{
+	return m_selectedIdx;
+}
+
 BEGIN_EVENT_TABLE(BookmarksDialog , wxDialog)
-//EVT_PAINT(BookmarksDialog::OnPaintEvent)
-//EVT_SIZE(BookmarksDialog::OnSizeEvent)
+	//EVT_PAINT(BookmarksDialog::OnPaintEvent)
+	//EVT_SIZE(BookmarksDialog::OnSizeEvent)
+	EVT_TREE_ITEM_ACTIVATED(wxID_ANY, BookmarksDialog::OnTreeItemActivated)
+	EVT_TREE_SEL_CHANGED(wxID_ANY, BookmarksDialog::OnTreeSelectionChanged)
 END_EVENT_TABLE()

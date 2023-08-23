@@ -24,13 +24,15 @@ public:
 	void MovePrevPage();
 	void MoveNextPage();
 	void MovePage(int idx);
+	void MovePage(const wxString& pageName);
 	void AddMarked(int idx);
 	bool IsMarkedPage(int idx);
-	std::vector<std::tuple<wxString, wxString>> GetAllMarkedPages();
+	void OpenBookmark(int idx);
+	std::vector<std::tuple<int, wxString, wxString>> GetAllMarkedPages();
 private:
-	bool InitalizeDatabase();
+	bool InitializeDatabase();
 	void InsertPageNameForReopen(const wxString& prefix, const wxString& pageName);
-
+	bool Open(const wxString& filePath);
 private:
 	View* m_pView;
 	Model* m_pModel;
@@ -48,6 +50,7 @@ private:
 	sqlite3_stmt* m_pStmtSelectMarkedPages;
 	sqlite3_stmt* m_pStmtSelectAllPrefix;
 	sqlite3_stmt* m_pStmtSelectAllMarkedPages;
+	sqlite3_stmt* m_pStmtSelectMarkedPage;
 };
 
 wxDECLARE_APP(ComicZipViewerApp);
