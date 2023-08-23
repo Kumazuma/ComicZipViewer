@@ -1,6 +1,8 @@
 #include "framework.h"
 #include "ComicZipViewerFrame.h"
 #include "ComicZipViewer.h"
+#include "CsRgb24ToRgba32"
+#include "CsRgb24WithAlphaToRgba32"
 #include <wx/bitmap.h>
 
 wxDEFINE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);
@@ -145,6 +147,9 @@ bool ComicZipViewerFrame::Create(wxEvtHandler* pView)
 	}
 
 	GenerateIconBitmaps();
+
+	m_d3dDevice->CreateComputeShader(CsRgb24ToRgba32, sizeof(CsRgb24ToRgba32), nullptr, &m_d3dCsRgb24ToRgba32);
+	m_d3dDevice->CreateComputeShader(CsRgb24WithAlphaToRgba32 , sizeof(CsRgb24WithAlphaToRgba32) , nullptr , &m_d3dCsRgb24WithAlphaToRgba32);
 	return true;
 }
 
@@ -177,12 +182,16 @@ WXLRESULT ComicZipViewerFrame::MSWWindowProc(WXUINT message, WXWPARAM wParam, WX
 
 void ComicZipViewerFrame::ShowImage(const wxImage& image)
 {
-	auto size = image.GetSize();
+	const auto hasAlpha = image.HasAlpha();
+	const auto alphaMode = hasAlpha ? D2D1_ALPHA_MODE_PREMULTIPLIED : D2D1_ALPHA_MODE_IGNORE;
+	const auto size = image.GetSize();
 	bool needCreationBitmap = m_bitmap == nullptr;
 	if(!needCreationBitmap)
 	{
-		auto bitmapSize = m_bitmap->GetPixelSize();
+		const auto bitmapSize = m_bitmap->GetPixelSize();
 		needCreationBitmap = size.x != bitmapSize.width || size.y != bitmapSize.height;
+		needCreationBitmap = needCreationBitmap || m_bitmap->GetPixelFormat().alphaMode != alphaMode;
+
 		if(needCreationBitmap)
 		{
 			m_bitmap.Reset();
@@ -192,53 +201,93 @@ void ComicZipViewerFrame::ShowImage(const wxImage& image)
 	HRESULT hr;
 	ComPtr<ID2D1Bitmap1> bitmap;
 	ComPtr<ID3D11Texture2D> texture2d;
-	ComPtr<IDXGISurface> surface;
+	D3D11_TEXTURE2D_DESC texture2dDesc{};
+
 	if(needCreationBitmap)
 	{
-		D3D11_TEXTURE2D_DESC texture2dDesc{};
 		texture2dDesc.ArraySize = 1;
-		texture2dDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		texture2dDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
 		texture2dDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		texture2dDesc.MipLevels = 1;
-		texture2dDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		texture2dDesc.Usage = D3D11_USAGE_DYNAMIC;
+		texture2dDesc.CPUAccessFlags = 0;
+		texture2dDesc.Usage = D3D11_USAGE_DEFAULT;
 		texture2dDesc.SampleDesc.Count = 1;
 		texture2dDesc.Width = size.GetWidth();
 		texture2dDesc.Height = size.GetHeight();
 		hr = m_d3dDevice->CreateTexture2D(&texture2dDesc, nullptr, &texture2d);
+
+		hr = m_d3dDevice->CreateUnorderedAccessView(texture2d.Get() , nullptr , &m_d3dUavTexture2d);
+		assert(SUCCEEDED(hr));
+	}
+	else
+	{
+		bitmap = m_bitmap;
+	}
+
+	ComPtr<ID3D11Texture2D> rgb24Texture;
+	ComPtr<ID3D11Texture2D> alphaTexture;
+	ComPtr<ID3D11ShaderResourceView> srvRgb24Texture;
+	ComPtr<ID3D11ShaderResourceView> srvAlphaTexture;
+
+	texture2dDesc.ArraySize = 1;
+	texture2dDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	texture2dDesc.Format = DXGI_FORMAT_R8_UNORM;
+	texture2dDesc.MipLevels = 1;
+	texture2dDesc.CPUAccessFlags = 0;
+	texture2dDesc.Usage = D3D11_USAGE_DEFAULT;
+	texture2dDesc.SampleDesc.Count = 1;
+	texture2dDesc.Width = size.GetWidth() * 3;
+	texture2dDesc.Height = size.GetHeight();
+	D3D11_SUBRESOURCE_DATA subResData{};
+	const wxByte* const rowData = image.GetData();
+	subResData.pSysMem = rowData;
+	subResData.SysMemPitch = size.GetWidth() * 3;
+	hr = m_d3dDevice->CreateTexture2D(&texture2dDesc , &subResData , &rgb24Texture);
+	assert(SUCCEEDED(hr));
+
+	hr = m_d3dDevice->CreateShaderResourceView(rgb24Texture.Get(), nullptr, &srvRgb24Texture);
+	assert(SUCCEEDED(hr));
+
+	if(hasAlpha)
+	{
+		texture2dDesc.Width = size.GetWidth();
+		texture2dDesc.Height = size.GetHeight();
+		subResData.pSysMem = image.GetAlpha();
+		subResData.SysMemPitch = size.GetWidth();
+
+		hr = m_d3dDevice->CreateTexture2D(&texture2dDesc , &subResData , &alphaTexture);
+		assert(SUCCEEDED(hr));
+
+		hr = m_d3dDevice->CreateShaderResourceView(alphaTexture.Get() , nullptr , &srvAlphaTexture);
+		assert(SUCCEEDED(hr));
+	}
+
+	ID3D11ShaderResourceView* srvs[] {srvRgb24Texture.Get(), srvAlphaTexture.Get()};
+	ID3D11UnorderedAccessView* uavs[] { m_d3dUavTexture2d.Get()};
+	m_d3dContext->CSSetShaderResources(0, 2, srvs);
+	m_d3dContext->CSSetUnorderedAccessViews(0, 1, uavs, nullptr);
+	if(!hasAlpha)
+	{
+		m_d3dContext->CSSetShader(m_d3dCsRgb24ToRgba32.Get() , nullptr , 0);
+	}
+	else
+	{
+		m_d3dContext->CSSetShader(m_d3dCsRgb24WithAlphaToRgba32.Get() , nullptr , 0);
+	}
+	
+	m_d3dContext->Dispatch(size.GetWidth(), size.GetHeight(), 1);
+	if(needCreationBitmap)
+	{
+		ComPtr<IDXGISurface> surface;
 		hr = texture2d.As(&surface);
-		hr = m_d2dContext->CreateBitmapFromDxgiSurface(surface.Get(), D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_NONE, D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)), &bitmap);
+		hr = m_d2dContext->CreateBitmapFromDxgiSurface(surface.Get(), D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_NONE, D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, alphaMode)), &bitmap);
 		if(FAILED(hr))
 		{
 			wxLogError(wxS("Failed to create D2D Bitmap"));
 			return;
 		}
 	}
-	else
-	{
-		bitmap = m_bitmap;
-		bitmap->GetSurface(&surface);
-		hr = surface.As(&texture2d);
-		assert(texture2d != nullptr);
-	}
 
-	D3D11_MAPPED_SUBRESOURCE mappedRect;
-	m_d3dContext->Map(texture2d.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedRect);
-	const wxByte* const rowData = image.GetData();
-	const wxByte* const alpha = image.GetAlpha();
-	const bool hasAlpha = image.HasAlpha();
-	for (int row = 0; row < size.GetHeight(); ++row)
-	{
-		for (int cols = 0; cols < size.GetWidth(); ++cols)
-		{
-			const int idx = row * 3 * size.GetWidth() + cols * 3;
-			uint32_t rgba = 0;
-			rgba = rowData[idx] | rowData[idx + 1] << 8 | rowData[idx + 2] << 16 | (hasAlpha ? alpha[row * size.GetWidth() + cols] : 0xFF) << 24;
-			*reinterpret_cast<uint32_t*>((uint8_t*)mappedRect.pData + row * mappedRect.RowPitch + cols * 4) = rgba;
-		}
-	}
-
-	m_d3dContext->Unmap(texture2d.Get(), 0);
 	m_bitmap = bitmap;
 	m_imageSize = size;
 	UpdateScaledImageSize();
