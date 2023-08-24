@@ -72,6 +72,8 @@ bool BookmarksDialog::Create(wxWindow* parent, wxWindowID winId, wxEvtHandler* p
 		m_pTreeCtrl->SetItemData(id, new TreeData(std::get<0>(tuple)));
 	}
 
+	m_pTreeCtrl->ExpandAll();
+
 	SetSizer(bSizer);
 	Layout();
 	return true;
@@ -148,6 +150,7 @@ void BookmarksDialog::OnTreeItemActivated(wxTreeEvent& evt)
 	if(pItemData == nullptr)
 		return;
 
+	m_selectedIdx = static_cast< TreeData* >( pItemData )->GetIdx();
 	this->EndModal(wxID_OK);
 }
 
@@ -162,7 +165,16 @@ void BookmarksDialog::OnTreeSelectionChanged(wxTreeEvent& evt)
 
 	auto pItemData = m_pTreeCtrl->GetItemData(id);
 	if(pItemData == nullptr)
+	{
+		wxTreeItemIdValue value;
+		auto childId = m_pTreeCtrl->GetFirstChild(id , value);
+		if( childId.IsOk() )
+		{
+			m_selectedIdx = static_cast< TreeData* >( m_pTreeCtrl->GetItemData(childId) )->GetIdx();
+		}
+
 		return;
+	}
 
 	m_selectedIdx = static_cast<TreeData*>(pItemData)->GetIdx();
 }
