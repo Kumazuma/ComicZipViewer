@@ -106,7 +106,7 @@ void View::OnClickedMoveNextBook(wxCommandEvent&)
 	do
 	{
 		prefix = app.GetNextBook(prefix);
-	} while ( !app.OpenFile(prefix) && !prefix.IsEmpty() );
+	} while ( !prefix.IsEmpty() && !app.OpenFile(prefix) );
 	
 	const int pageCount = app.GetPageCount();
 	const int pageNumber = app.GetCurrentPageNumber();
@@ -129,7 +129,7 @@ void View::OnClickedMovePrevBook(wxCommandEvent&)
 	do
 	{
 		prefix = app.GetPrevBook(prefix);
-	} while ( !app.OpenFile(prefix) && !prefix.IsEmpty() );
+	} while ( !prefix.IsEmpty() && !app.OpenFile(prefix) );
 
 	const int pageCount = app.GetPageCount();
 	const int pageNumber = app.GetCurrentPageNumber();

@@ -381,8 +381,6 @@ std::vector<std::tuple<int, wxString, wxString>> ComicZipViewerApp::GetAllMarked
 
 wxString ComicZipViewerApp::GetNextBook(const wxString& prefix)
 {
-	wxFileName fileName(prefix);
-	auto parentPath = fileName.GetPath();
 	auto& list = m_pModel->bookList;
 	auto it = std::find(list.begin() , list.end() , prefix);
 	if ( it == list.end() )
@@ -401,8 +399,6 @@ wxString ComicZipViewerApp::GetNextBook(const wxString& prefix)
 
 wxString ComicZipViewerApp::GetPrevBook(const wxString& prefix)
 {
-	wxFileName fileName(prefix);
-	auto parentPath = fileName.GetPath();
 	auto& list = m_pModel->bookList;
 	auto it = std::find(list.begin() , list.end() , prefix);
 	if ( it == list.begin() || it == list.end())
@@ -671,15 +667,19 @@ bool ComicZipViewerApp::Open(const wxString& filePath)
 	auto& bookList = m_pModel->bookList;
 	if(newPageCollection == nullptr)
 	{
-		if( !wxFile::Exists(filePath) )
+		if( !wxFileName::Exists(filePath) )
 		{
 			wxFileName path(filePath);
 			auto parentPrefixPath = path.GetPath();
 			wxStructStat stat;
 			wxStat(parentPrefixPath , &stat);
-			bookList = GetBookListInParentDir(path.GetPath());
-			m_pModel->parentPrefixPath.swap(parentPrefixPath);
-			m_pModel->latestModifiedTime = stat.st_mtime;
+			auto newBookList = GetBookListInParentDir(path.GetPath());
+			if( !newBookList.empty() )
+			{
+				bookList = std::move(newBookList);
+				m_pModel->parentPrefixPath.swap(parentPrefixPath);
+				m_pModel->latestModifiedTime = stat.st_mtime;
+			}
 		}
 
 		return false;
