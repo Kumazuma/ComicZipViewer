@@ -90,7 +90,7 @@ bool ComicZipViewerFrame::Create(wxEvtHandler* pView)
 	
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc1{};
 	swapChainDesc1.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
-	swapChainDesc1.BufferCount = 2;
+	swapChainDesc1.BufferCount = 3;
 	swapChainDesc1.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_UNORDERED_ACCESS;
 	swapChainDesc1.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	swapChainDesc1.Height = m_clientSize.GetHeight();
