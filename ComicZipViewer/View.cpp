@@ -155,6 +155,8 @@ void View::OnClickedBookmarks(wxCommandEvent&)
 	if(!diloag.Create(m_pFrame, wxID_ANY, this, std::forward<decltype(bookmarks)>(bookmarks)))
 		return;
 
+	diloag.CenterOnParent();
+
 	if(diloag.ShowModal() != wxID_OK)
 		return;
 
