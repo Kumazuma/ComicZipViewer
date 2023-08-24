@@ -99,19 +99,71 @@ void View::OnClickedMark(wxCommandEvent&)
 	m_pFrame->SetPageIsMarked(true);
 }
 
-void View::OnForward(wxCommandEvent&)
+void View::OnClickedMoveNextBook(wxCommandEvent&)
 {
 	auto& app = wxGetApp();
-	int latestPageNumber = app.GetCurrentPageNumber();
-	app.MoveNextPage();
+	auto prefix = app.GetPrefix();
+	do
+	{
+		prefix = app.GetNextBook(prefix);
+	} while ( !app.OpenFile(prefix) && !prefix.IsEmpty() );
+	
 	const int pageCount = app.GetPageCount();
 	const int pageNumber = app.GetCurrentPageNumber();
-	if ( pageNumber == latestPageNumber )
-	{
-		return;
-	}
+	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+	m_pFrame->Freeze();
+	m_pFrame->ShowImage(image);
+	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName() , pageNumber + 1 , pageCount));
+	m_pFrame->SetSeekBarPos(pageNumber);
+	m_pFrame->SetPageIsMarked(false);
+	if ( app.IsMarkedPage(pageNumber) )
+		m_pFrame->SetPageIsMarked(true);
 
-	wxImage image = app.GetDecodedImage(pageNumber);
+	m_pFrame->Thaw();
+}
+
+void View::OnClickedMovePrevBook(wxCommandEvent&)
+{
+	auto& app = wxGetApp();
+	auto prefix = app.GetPrefix();
+	do
+	{
+		prefix = app.GetPrevBook(prefix);
+	} while ( !app.OpenFile(prefix) && !prefix.IsEmpty() );
+
+	const int pageCount = app.GetPageCount();
+	const int pageNumber = app.GetCurrentPageNumber();
+	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+	m_pFrame->Freeze();
+	m_pFrame->ShowImage(image);
+	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName() , pageNumber + 1 , pageCount));
+	m_pFrame->SetSeekBarPos(pageNumber);
+	m_pFrame->SetPageIsMarked(false);
+	if ( app.IsMarkedPage(pageNumber) )
+		m_pFrame->SetPageIsMarked(true);
+
+	m_pFrame->Thaw();
+}
+
+void View::OnForward(wxCommandEvent&)
+{
+	wxImage image;
+	auto& app = wxGetApp();
+	const int pageCount = app.GetPageCount();
+	const int latestPageNumber = app.GetCurrentPageNumber();
+	int pageNumber;
+	do
+	{
+		app.MoveNextPage();
+		pageNumber = app.GetCurrentPageNumber();
+		if ( pageNumber == latestPageNumber )
+		{
+			return;
+		}
+
+		image = app.GetDecodedImage(pageNumber);
+	} while ( !image.IsOk() );
+
 	m_pFrame->Freeze();
 	m_pFrame->ShowImage(image);
 	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
@@ -125,17 +177,23 @@ void View::OnForward(wxCommandEvent&)
 
 void View::OnBackward(wxCommandEvent&)
 {
+	wxImage image;
 	auto& app = wxGetApp();
 	const int pageCount = app.GetPageCount();
 	const int latestPageNumber = app.GetCurrentPageNumber();
-	app.MovePrevPage();
-	const int pageNumber = app.GetCurrentPageNumber();
-	if ( pageNumber == latestPageNumber )
+	int pageNumber;
+	do
 	{
-		return;
-	}
+		app.MovePrevPage();
+		pageNumber = app.GetCurrentPageNumber();
+		if ( pageNumber == latestPageNumber )
+		{
+			return;
+		}
 
-	wxImage image = app.GetDecodedImage(pageNumber);
+		image = app.GetDecodedImage(pageNumber);
+	} while ( !image.IsOk() );
+
 	m_pFrame->Freeze();
 	m_pFrame->ShowImage(image);
 	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName(), pageNumber + 1, pageCount));
@@ -181,7 +239,34 @@ void View::OnClickedBookmarks(wxCommandEvent&)
 
 void View::OnOpenedBookmark(wxCommandEvent&)
 {
+	auto& app = wxGetApp();
+	auto bookmarks = app.GetAllMarkedPages();
+	BookmarksDialog diloag;
+	if ( !diloag.Create(m_pFrame , wxID_ANY , this , std::forward<decltype( bookmarks )>(bookmarks)) )
+		return;
 
+	diloag.CenterOnParent();
+
+	if ( diloag.ShowModal() != wxID_OK )
+		return;
+
+	const auto id = diloag.GetSelection();
+	if ( id == 0 )
+		return;
+
+	app.OpenBookmark(id);
+	const int pageNumber = app.GetCurrentPageNumber();
+	const int pageCount = app.GetPageCount();
+	wxImage image = app.GetDecodedImage(pageNumber);
+	m_pFrame->Freeze();
+	m_pFrame->ShowImage(image);
+	m_pFrame->SetTitle(wxString::Format(wxS("ComicZipViewer: %s [%d/%d]") , app.GetCurrentPageName() , pageNumber + 1 , pageCount));
+	m_pFrame->SetSeekBarPos(pageNumber);
+	m_pFrame->SetPageIsMarked(false);
+	if ( app.IsMarkedPage(pageNumber) )
+		m_pFrame->SetPageIsMarked(true);
+
+	m_pFrame->Thaw();
 }
 
 BEGIN_EVENT_TABLE(View , wxEvtHandler)
@@ -196,6 +281,8 @@ BEGIN_EVENT_TABLE(View , wxEvtHandler)
 	EVT_BUTTON(ID_BTN_FIT_PAGE, View::OnClickedFitPage)
 	EVT_BUTTON(ID_BTN_FIT_WIDTH, View::OnClickedFitWidth)
 	EVT_BUTTON(ID_BTN_ORIGINAL, View::OnClickedOriginal)
+	EVT_BUTTON(ID_BTN_MOVE_TO_NEXT_PAGE, View::OnClickedMoveNextBook)
+	EVT_BUTTON(ID_BTN_MOVE_TO_PREV_PAGE , View::OnClickedMovePrevBook)
 	EVT_COMMAND(wxID_ANY, wxEVT_OPEN_BOOKMARK, View::OnOpenedBookmark)
 	EVT_MENU(wxID_ANY , View::OnMenu)
 END_EVENT_TABLE()

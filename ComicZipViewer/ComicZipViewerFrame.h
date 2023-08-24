@@ -12,7 +12,11 @@ struct Rect : public D2D1_RECT_F
 {
 	float GetWidth() const { return right - left; }
 	float GetHeight() const { return bottom - top; }
-
+	bool Contain(const wxPoint& pt) const
+	{
+		return left <= pt.x && pt.x <= right
+			&& top <= pt.y && pt.y <= bottom;
+	}
 };
 
 enum class ImageViewModeKind
@@ -22,7 +26,9 @@ enum class ImageViewModeKind
 	FIT_WIDTH
 };
 
-constexpr wxWindowID ID_BTN_FIT_WIDTH = wxID_HIGHEST + 1;
+constexpr wxWindowID ID_BTN_MOVE_TO_PREV_PAGE = wxID_HIGHEST + 1;
+constexpr wxWindowID ID_BTN_MOVE_TO_NEXT_PAGE = ID_BTN_MOVE_TO_PREV_PAGE + 1;
+constexpr wxWindowID ID_BTN_FIT_WIDTH = ID_BTN_MOVE_TO_NEXT_PAGE + 1;
 constexpr wxWindowID ID_BTN_FIT_PAGE = ID_BTN_FIT_WIDTH + 1;
 constexpr wxWindowID ID_BTN_ORIGINAL =ID_BTN_FIT_PAGE + 1;
 constexpr wxWindowID ID_BTN_BOOKMARK_VIEW = ID_BTN_ORIGINAL + 1;
@@ -98,6 +104,8 @@ private:
 	wxSize m_clientSize;
 	Rect m_panelRect;
 	Rect m_seekBarRect;
+	Rect m_moveToNextBookBtnRect;
+	Rect m_moveToPrevBookBtnRect;
 	Rect m_fitWidthBtnRect;
 	Rect m_fitPageBtnRect;
 	Rect m_originalBtnRect;

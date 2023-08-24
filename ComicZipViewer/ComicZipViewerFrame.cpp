@@ -22,6 +22,9 @@ constexpr std::wstring_view ID_SVG_PAGE = wxS("ID_SVG_PAGE");
 constexpr std::wstring_view ID_SVG_MARKED_PAGE = wxS("ID_SVG_MARKED_PAGE");
 constexpr std::wstring_view ID_SVG_UNMARKED_PAGE = wxS("ID_SVG_UNMARKED_PAGE");
 constexpr std::wstring_view ID_SVG_TEXT_BULLET_LIST_SQUARE = wxS("ID_SVG_TEXT_BULLET_LIST_SQUARE");
+constexpr std::wstring_view ID_SVG_MOVE_TO_NEXT_BOOK = wxS("ID_SVG_MOVE_TO_NEXT_BOOK");
+constexpr std::wstring_view ID_SVG_MOVE_TO_PREV_BOOK = wxS("ID_SVG_MOVE_TO_PREV_BOOK");
+
 ComicZipViewerFrame::ComicZipViewerFrame()
 
 	: m_isSizing(false)
@@ -140,6 +143,8 @@ bool ComicZipViewerFrame::Create(wxEvtHandler* pView)
 	m_iconBitmapInfo.emplace(ID_SVG_MARKED_PAGE, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
 	m_iconBitmapInfo.emplace(ID_SVG_TEXT_BULLET_LIST_SQUARE, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
 	m_iconBitmapInfo.emplace(ID_SVG_UNMARKED_PAGE, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
+	m_iconBitmapInfo.emplace(ID_SVG_MOVE_TO_PREV_BOOK, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
+	m_iconBitmapInfo.emplace(ID_SVG_MOVE_TO_NEXT_BOOK, std::tuple<wxBitmapBundle, D2D1_RECT_F>{});
 	for(auto& pair: m_iconBitmapInfo)
 	{
 		auto& bundle = std::get<0>(pair.second);
@@ -382,59 +387,80 @@ void ComicZipViewerFrame::Render()
 		m_d2dContext->SetTransform(D2D1::Matrix3x2F::Identity());
 	}
 
-	if(m_alphaControlPanel > 0.f)
+	if ( m_alphaControlPanel > 0.f )
 	{
 		const float scale = GetDPIScaleFactor();
 		const auto& size = m_clientSize;
 		const Rect& seekBarRect = m_seekBarRect;
 		const float seekBarX = m_panelRect.left + SEEK_BAR_PADDING * scale;
-		const float seekBarWidth = m_panelRect.GetWidth() -  SEEK_BAR_PADDING * 2 * scale;
-		m_d2dContext->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect(), nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE, D2D1::IdentityMatrix(), m_alphaControlPanel), m_controlPanelLayer.Get());
-		m_d2dContext->FillRectangle(m_panelRect, m_d2dBackGroundWhiteBrush.Get());
-		m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(seekBarRect, SEEK_BAR_TRACK_HEIGHT * 0.5f * scale , SEEK_BAR_TRACK_HEIGHT * 0.5f * scale) , m_d2dGrayBrush.Get());
-		if( wxGetApp().GetPageCount() >= 1 )
+		const float seekBarWidth = m_panelRect.GetWidth() - SEEK_BAR_PADDING * 2 * scale;
+		m_d2dContext->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect() , nullptr , D2D1_ANTIALIAS_MODE_PER_PRIMITIVE , D2D1::IdentityMatrix() , m_alphaControlPanel) , m_controlPanelLayer.Get());
+		m_d2dContext->FillRectangle(m_panelRect , m_d2dBackGroundWhiteBrush.Get());
+		m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(seekBarRect , SEEK_BAR_TRACK_HEIGHT * 0.5f * scale , SEEK_BAR_TRACK_HEIGHT * 0.5f * scale) , m_d2dGrayBrush.Get());
+		if ( wxGetApp().GetPageCount() >= 1 )
 		{
-			const float percent = m_valueSeekBar / ( float ) (wxGetApp().GetPageCount() - 1);
+			const float percent = m_valueSeekBar / ( float ) ( wxGetApp().GetPageCount() - 1 );
 			const float bar = seekBarRect.GetWidth() * percent + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale + seekBarRect.left;
 			const float thumbCenterY = seekBarRect.top + SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
 			Rect valueRect = seekBarRect;
 			valueRect.right = bar;
-			m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(valueRect, SEEK_BAR_TRACK_HEIGHT * 0.5f * scale , SEEK_BAR_TRACK_HEIGHT * 0.5f * scale) , m_d2dBlueBrush.Get());
-			m_d2dContext->FillEllipse(D2D1::Ellipse(D2D1::Point2F(bar, thumbCenterY), SEEK_BAR_THUMB_RADIUS * scale , SEEK_BAR_THUMB_RADIUS * scale) , m_d2dWhiteBrush.Get());
-			m_d2dContext->FillEllipse(D2D1::Ellipse(D2D1::Point2F(bar, thumbCenterY), 5.0f * scale , 5.0f * scale) , m_d2dBlueBrush.Get());
-			m_d2dContext->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(bar, thumbCenterY), SEEK_BAR_THUMB_RADIUS * scale , SEEK_BAR_THUMB_RADIUS * scale) , m_d2dBlueBrush.Get(), 0.5f, m_d2dSimpleStrokeStyle.Get());
+			m_d2dContext->FillRoundedRectangle(D2D1::RoundedRect(valueRect , SEEK_BAR_TRACK_HEIGHT * 0.5f * scale , SEEK_BAR_TRACK_HEIGHT * 0.5f * scale) , m_d2dBlueBrush.Get());
+			m_d2dContext->FillEllipse(D2D1::Ellipse(D2D1::Point2F(bar , thumbCenterY) , SEEK_BAR_THUMB_RADIUS * scale , SEEK_BAR_THUMB_RADIUS * scale) , m_d2dWhiteBrush.Get());
+			m_d2dContext->FillEllipse(D2D1::Ellipse(D2D1::Point2F(bar , thumbCenterY) , 5.0f * scale , 5.0f * scale) , m_d2dBlueBrush.Get());
+			m_d2dContext->DrawEllipse(D2D1::Ellipse(D2D1::Point2F(bar , thumbCenterY) , SEEK_BAR_THUMB_RADIUS * scale , SEEK_BAR_THUMB_RADIUS * scale) , m_d2dBlueBrush.Get() , 0.5f , m_d2dSimpleStrokeStyle.Get());
 		}
 
-		if(m_imageViewMode == ImageViewModeKind::ORIGINAL)
-			m_d2dContext->FillRectangle(m_originalBtnRect, m_d2dWhiteBrush.Get());
+		if ( m_imageViewMode == ImageViewModeKind::ORIGINAL )
+			m_d2dContext->FillRectangle(m_originalBtnRect , m_d2dWhiteBrush.Get());
 
-		m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_originalBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_PAGE]));
+		m_d2dContext->DrawBitmap(m_iconAtlas.Get() , m_originalBtnRect , 1.f , D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR , std::get<1>(m_iconBitmapInfo[ ID_SVG_PAGE ]));
 
-		if(m_imageViewMode == ImageViewModeKind::FIT_PAGE)
-			m_d2dContext->FillRectangle(m_fitPageBtnRect, m_d2dWhiteBrush.Get());
+		if ( m_imageViewMode == ImageViewModeKind::FIT_PAGE )
+			m_d2dContext->FillRectangle(m_fitPageBtnRect , m_d2dWhiteBrush.Get());
 
-		m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_fitPageBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_FIT_PAGE]));
+		m_d2dContext->DrawBitmap(m_iconAtlas.Get() , m_fitPageBtnRect , 1.f , D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR , std::get<1>(m_iconBitmapInfo[ ID_SVG_FIT_PAGE ]));
 
-		if(m_imageViewMode == ImageViewModeKind::FIT_WIDTH)
-			m_d2dContext->FillRectangle(m_fitWidthBtnRect, m_d2dWhiteBrush.Get());
+		if ( m_imageViewMode == ImageViewModeKind::FIT_WIDTH )
+			m_d2dContext->FillRectangle(m_fitWidthBtnRect , m_d2dWhiteBrush.Get());
 
-		m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_fitWidthBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_FIT_WIDTH]));
+		m_d2dContext->DrawBitmap(m_iconAtlas.Get() , m_fitWidthBtnRect , 1.f , D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR , std::get<1>(m_iconBitmapInfo[ ID_SVG_FIT_WIDTH ]));
 
-		if(m_idMouseOver == ID_BTN_BOOKMARK_VIEW)
-			m_d2dContext->FillRectangle(m_bookmarkViewBtnRect, m_d2dWhiteBrush.Get());
+		if ( m_idMouseOver != wxID_ANY )
+		{
+			const D2D1_RECT_F* rc = nullptr;
+			switch( m_idMouseOver )
+			{
+			case ID_BTN_BOOKMARK_VIEW:
+				rc = &m_bookmarkViewBtnRect;
+				break;
 
-		m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_bookmarkViewBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_TEXT_BULLET_LIST_SQUARE]));
+			case ID_BTN_ADD_MARK:
+				rc = &m_addMarkBtnRect;
+				break;
 
-		if(m_idMouseOver == ID_BTN_ADD_MARK)
-			m_d2dContext->FillRectangle(m_addMarkBtnRect, m_d2dWhiteBrush.Get());
+			case ID_BTN_MOVE_TO_NEXT_PAGE:
+				rc = &m_moveToNextBookBtnRect;
+				break;
+
+			case ID_BTN_MOVE_TO_PREV_PAGE:
+				rc = &m_moveToPrevBookBtnRect;
+				break;
+			}
+
+			m_d2dContext->FillRectangle(*rc , m_d2dWhiteBrush.Get());
+		}
+
+		m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_bookmarkViewBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR, std::get<1>(m_iconBitmapInfo[ID_SVG_TEXT_BULLET_LIST_SQUARE]));
+		m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_moveToPrevBookBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR , std::get<1>(m_iconBitmapInfo[ ID_SVG_MOVE_TO_PREV_BOOK ]));
+		m_d2dContext->DrawBitmap(m_iconAtlas.Get() , m_moveToNextBookBtnRect , 1.f , D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR , std::get<1>(m_iconBitmapInfo[ ID_SVG_MOVE_TO_NEXT_BOOK ]));
 
 		if(m_pageIsMarked)
 		{
-			m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_addMarkBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_MARKED_PAGE]));
+			m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_addMarkBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR , std::get<1>(m_iconBitmapInfo[ID_SVG_MARKED_PAGE]));
 		}
 		else
 		{
-			m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_addMarkBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, std::get<1>(m_iconBitmapInfo[ID_SVG_UNMARKED_PAGE]));
+			m_d2dContext->DrawBitmap(m_iconAtlas.Get(), m_addMarkBtnRect, 1.f, D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR , std::get<1>(m_iconBitmapInfo[ID_SVG_UNMARKED_PAGE]));
 		}
 
 
@@ -542,13 +568,23 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 	auto pos = evt.GetPosition();
 	const wxWindowID prevIdMouseOver = m_idMouseOver;
 	m_idMouseOver = wxID_ANY;
-	if(m_bookmarkViewBtnRect.left <= pos.x && pos.x <= m_bookmarkViewBtnRect.right
-		&& m_bookmarkViewBtnRect.top <= pos.y && pos.y <= m_bookmarkViewBtnRect.bottom)
+	if(m_bookmarkViewBtnRect.Contain(pos))
+	{
 		m_idMouseOver = ID_BTN_BOOKMARK_VIEW;
-
-	if(m_addMarkBtnRect.left <= pos.x && pos.x <= m_addMarkBtnRect.right
-		&& m_addMarkBtnRect.top <= pos.y && pos.y <= m_addMarkBtnRect.bottom)
+	}
+	else if(m_addMarkBtnRect.Contain(pos) )
+	{
 		m_idMouseOver = ID_BTN_ADD_MARK;
+	}
+	else if(m_moveToNextBookBtnRect.Contain(pos))
+	{
+		m_idMouseOver = ID_BTN_MOVE_TO_NEXT_PAGE;
+	}
+	else if ( m_moveToPrevBookBtnRect.Contain(pos) )
+	{
+		m_idMouseOver = ID_BTN_MOVE_TO_PREV_PAGE;
+	}
+
 	if(prevIdMouseOver != m_idMouseOver)
 		TryRender();
 
@@ -590,8 +626,7 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 		m_offsetSeekbarThumbPos = std::nullopt;
 	}
 
-	if(m_panelRect.left <= pos.x && pos.x <= m_panelRect.right
-		&& m_panelRect.top <= pos.y && pos.y <= m_panelRect.bottom)
+	if(m_panelRect.Contain(pos))
 	{
 		if(!m_shownControlPanel)
 		{
@@ -636,30 +671,33 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 		m_originalBtnRect.bottom,
 	};
 
-	if( m_originalBtnRect.left <= pos.x && pos.x <= m_originalBtnRect.right
-		&& m_originalBtnRect.top <= pos.y && pos.y <= m_originalBtnRect.bottom )
+	if( m_originalBtnRect.Contain(pos))
 	{
 		m_latestHittenButtonId = ID_BTN_ORIGINAL;
 	}
-	else if( m_fitPageBtnRect.left <= pos.x && pos.x <= m_fitPageBtnRect.right
-		&& m_fitPageBtnRect.top <= pos.y && pos.y <= m_fitPageBtnRect.bottom )
+	else if( m_fitPageBtnRect.Contain(pos) )
 	{
 		m_latestHittenButtonId = ID_BTN_FIT_PAGE;
 	}
-	else if( m_fitWidthBtnRect.left <= pos.x && pos.x <= m_fitWidthBtnRect.right
-		&& m_fitWidthBtnRect.top <= pos.y && pos.y <= m_fitWidthBtnRect.bottom )
+	else if( m_fitWidthBtnRect.Contain(pos) )
 	{
 		m_latestHittenButtonId = ID_BTN_FIT_WIDTH;
 	}
-	else if( m_addMarkBtnRect.left <= pos.x && pos.x <= m_addMarkBtnRect.right
-		&& m_addMarkBtnRect.top <= pos.y && pos.y <= m_addMarkBtnRect.bottom )
+	else if( m_addMarkBtnRect.Contain(pos) )
 	{
 		m_latestHittenButtonId = ID_BTN_ADD_MARK;
 	}
-	else if( m_bookmarkViewBtnRect.left <= pos.x && pos.x <= m_bookmarkViewBtnRect.right
-		&& m_bookmarkViewBtnRect.top <= pos.y && pos.y <= m_bookmarkViewBtnRect.bottom )
+	else if( m_bookmarkViewBtnRect.Contain(pos) )
 	{
 		m_latestHittenButtonId = ID_BTN_BOOKMARK_VIEW;
+	}
+	else if(m_moveToNextBookBtnRect.Contain(pos) )
+	{
+		m_latestHittenButtonId = ID_BTN_MOVE_TO_NEXT_PAGE;
+	}
+	else if(m_moveToPrevBookBtnRect.Contain(pos))
+	{
+		m_latestHittenButtonId = ID_BTN_MOVE_TO_PREV_PAGE;
 	}
 
 
@@ -718,30 +756,33 @@ void ComicZipViewerFrame::OnLMouseUp(wxMouseEvent& evt)
 		return;
 
 	wxWindowID hitId = wxID_ANY;
-	if ( m_originalBtnRect.left <= pos.x && pos.x <= m_originalBtnRect.right
-	&& m_originalBtnRect.top <= pos.y && pos.y <= m_originalBtnRect.bottom )
+	if ( m_originalBtnRect.Contain(pos) )
 	{
 		hitId = ID_BTN_ORIGINAL;
 	}
-	else if ( m_fitPageBtnRect.left <= pos.x && pos.x <= m_fitPageBtnRect.right
-		&& m_fitPageBtnRect.top <= pos.y && pos.y <= m_fitPageBtnRect.bottom )
+	else if ( m_fitPageBtnRect.Contain(pos) )
 	{
 		hitId = ID_BTN_FIT_PAGE;
 	}
-	else if ( m_fitWidthBtnRect.left <= pos.x && pos.x <= m_fitWidthBtnRect.right
-		&& m_fitWidthBtnRect.top <= pos.y && pos.y <= m_fitWidthBtnRect.bottom )
+	else if ( m_fitWidthBtnRect.Contain(pos) )
 	{
 		hitId = ID_BTN_FIT_WIDTH;
 	}
-	else if( m_addMarkBtnRect.left <= pos.x && pos.x <= m_addMarkBtnRect.right
-		&& m_addMarkBtnRect.top <= pos.y && pos.y <= m_addMarkBtnRect.bottom )
+	else if ( m_addMarkBtnRect.Contain(pos) )
 	{
 		hitId = ID_BTN_ADD_MARK;
 	}
-	else if( m_bookmarkViewBtnRect.left <= pos.x && pos.x <= m_bookmarkViewBtnRect.right
-		&& m_bookmarkViewBtnRect.top <= pos.y && pos.y <= m_bookmarkViewBtnRect.bottom )
+	else if ( m_bookmarkViewBtnRect.Contain(pos) )
 	{
 		hitId = ID_BTN_BOOKMARK_VIEW;
+	}
+	else if ( m_moveToNextBookBtnRect.Contain(pos) )
+	{
+		hitId = ID_BTN_MOVE_TO_NEXT_PAGE;
+	}
+	else if ( m_moveToPrevBookBtnRect.Contain(pos) )
+	{
+		hitId = ID_BTN_MOVE_TO_PREV_PAGE;
 	}
 
 	if ( m_latestHittenButtonId != hitId )
@@ -785,7 +826,17 @@ void ComicZipViewerFrame::UpdateClientSize(const wxSize& sz)
 	m_seekBarRect.top = m_panelRect.top + SEEK_BAR_PADDING * scale;
 	m_seekBarRect.bottom = m_seekBarRect.top + SEEK_BAR_TRACK_HEIGHT * scale;
 
-	m_originalBtnRect.left = m_panelRect.left + 10 * scale;
+	m_moveToPrevBookBtnRect.left = m_panelRect.left + 10 * scale;
+	m_moveToPrevBookBtnRect.right = m_moveToPrevBookBtnRect.left + 64 * scale;
+	m_moveToPrevBookBtnRect.top = m_seekBarRect.bottom + 10 * scale;
+	m_moveToPrevBookBtnRect.bottom = m_moveToPrevBookBtnRect.top + 64 * scale;
+
+	m_moveToNextBookBtnRect.left = m_moveToPrevBookBtnRect.right;
+	m_moveToNextBookBtnRect.right = m_moveToNextBookBtnRect.left + 64 * scale;
+	m_moveToNextBookBtnRect.top = m_seekBarRect.bottom + 10 * scale;
+	m_moveToNextBookBtnRect.bottom = m_moveToNextBookBtnRect.top + 64 * scale;
+
+	m_originalBtnRect.left = m_moveToNextBookBtnRect.right;
 	m_originalBtnRect.right = m_originalBtnRect.left + 64 * scale;
 	m_originalBtnRect.top = m_seekBarRect.bottom + 10 * scale;
 	m_originalBtnRect.bottom = m_originalBtnRect.top + 64 * scale;

@@ -6,6 +6,8 @@
 #include "NaturalSortOrder.h"
 #include <wx/mstream.h>
 #include <wx/wfstream.h>
+#include <wx/dir.h>
+
 wxIMPLEMENT_APP(ComicZipViewerApp);
 
 ComicZipViewerApp::ComicZipViewerApp()
@@ -225,6 +227,11 @@ wxImage ComicZipViewerApp::GetDecodedImage(uint32_t idx)
 	return image;
 }
 
+const wxString& ComicZipViewerApp::GetPrefix() const
+{
+	return m_pModel->openedPath;
+}
+
 const wxString& ComicZipViewerApp::GetCurrentPageName() const
 {
 	return m_pModel->pageName;
@@ -370,6 +377,55 @@ std::vector<std::tuple<int, wxString, wxString>> ComicZipViewerApp::GetAllMarked
 	sqlite3_reset(m_pStmtSelectAllMarkedPages);
 
 	return ret;
+}
+
+wxString ComicZipViewerApp::GetNextBook(const wxString& prefix)
+{
+	wxFileName fileName(prefix);
+	auto parentPath = fileName.GetPath();
+	auto& list = m_pModel->bookList;
+	auto it = std::find(list.begin() , list.end() , prefix);
+	if ( it == list.end() )
+	{
+		return {};
+	}
+
+	++it;
+	if(it == list.end() )
+	{
+		return {};
+	}
+
+	return *it;
+}
+
+wxString ComicZipViewerApp::GetPrevBook(const wxString& prefix)
+{
+	wxFileName fileName(prefix);
+	auto parentPath = fileName.GetPath();
+	auto& list = m_pModel->bookList;
+	auto it = std::find(list.begin() , list.end() , prefix);
+	if ( it == list.begin() || it == list.end())
+	{
+		return {};
+	}
+
+	--it;
+	return *it;
+}
+
+std::vector<wxString> ComicZipViewerApp::GetBookListInParentDir(const wxString& parentPath)
+{
+	wxArrayString s;
+	wxDir::GetAllFiles(parentPath , &s , wxS("*.zip") , wxDIR_FILES);
+	std::vector<wxString> list;
+	for(auto& it: s)
+	{
+		list.emplace_back(wxString{});
+		list.back().swap(it);
+	}
+
+	return list;
 }
 
 bool ComicZipViewerApp::InitializeDatabase()
@@ -612,9 +668,20 @@ void ComicZipViewerApp::InsertPageNameForReopen(const wxString& prefix, const wx
 bool ComicZipViewerApp::Open(const wxString& filePath)
 {
 	auto newPageCollection = PageCollection::Create(filePath);
+	auto& bookList = m_pModel->bookList;
 	if(newPageCollection == nullptr)
-		return false;
+	{
+		if( !wxFile::Exists(filePath) )
+		{
+			wxFileName path(filePath);
+			bookList = GetBookListInParentDir(path.GetPath());
+		}
 
+		return false;
+	}
+
+	wxFileName path(filePath);
+	bookList = GetBookListInParentDir(path.GetPath());
 	if(m_pPageCollection != nullptr)
 	{
 		InsertPageNameForReopen(m_pModel->openedPath, m_pModel->pageName);

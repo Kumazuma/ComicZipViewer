@@ -194,13 +194,17 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="arrow-fit-width-svgrepo-com.svg" />
+    <None Include="arrow-next-svgrepo-com.svg" />
+    <None Include="arrow-previous-svgrepo-com.svg" />
     <None Include="page-fit-svgrepo-com.svg">
       <FileType>Document</FileType>
     </None>
     <None Include="page-svgrepo-com.svg" />
+    <None Include="rcdata1.bin" />
     <None Include="scale-fit-svgrepo-com.svg">
       <FileType>Document</FileType>
     </None>
+    <None Include="star-line-svgrepo-com.svg" />
     <None Include="star-svgrepo-com.svg" />
     <None Include="text-bullet-list-square-svgrepo-com.svg" />
   </ItemGroup>

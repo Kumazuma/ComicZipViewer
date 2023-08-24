@@ -126,6 +126,16 @@
     <None Include="page-fit-svgrepo-com.svg">
       <Filter>리소스 파일</Filter>
     </None>
+    <None Include="arrow-next-svgrepo-com.svg">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="arrow-previous-svgrepo-com.svg">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="rcdata1.bin">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="star-line-svgrepo-com.svg" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="CS_RGB24_TO_RGBA32.hlsl">

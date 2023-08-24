@@ -19,6 +19,7 @@ public:
 	uint32_t GetPageCount() const;
 	bool GetPageName(uint32_t idx, wxString* filename);
 	wxImage GetDecodedImage(uint32_t idx);
+	const wxString& GetPrefix() const;
 	const wxString& GetCurrentPageName() const;
 	int GetCurrentPageNumber() const;
 	void MovePrevPage();
@@ -29,6 +30,9 @@ public:
 	bool IsMarkedPage(int idx);
 	void OpenBookmark(int idx);
 	std::vector<std::tuple<int, wxString, wxString>> GetAllMarkedPages();
+	wxString GetNextBook(const wxString& prefix);
+	wxString GetPrevBook(const wxString& prefix);
+	std::vector<wxString> GetBookListInParentDir(const wxString& parentPath);
 private:
 	bool InitializeDatabase();
 	void InsertPageNameForReopen(const wxString& prefix, const wxString& pageName);

@@ -10,4 +10,5 @@ struct Model
 	std::unordered_set<wxString> markedPageSet;
 	int currentPageNumber;
 	wxString pageName;
+	std::vector<wxString> bookList;
 };

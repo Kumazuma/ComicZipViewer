@@ -18,6 +18,8 @@ protected:
 	void OnClickedFitPage(wxCommandEvent&);
 	void OnClickedFitWidth(wxCommandEvent&);
 	void OnClickedMark(wxCommandEvent&);
+	void OnClickedMoveNextBook(wxCommandEvent&);
+	void OnClickedMovePrevBook(wxCommandEvent&);
 	void OnForward(wxCommandEvent&);
 	void OnBackward(wxCommandEvent&);
 	void OnClickedBookmarks(wxCommandEvent&);
