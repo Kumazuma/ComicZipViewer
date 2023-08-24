@@ -84,6 +84,10 @@ private:
 	ComPtr<ID2D1Bitmap1> m_bitmap;
 	ComPtr<ID2D1Layer> m_controlPanelLayer;
 	ComPtr<ID2D1Bitmap1> m_iconAtlas;
+	ComPtr<ID3D11ComputeShader> m_d3dCsRgb24ToRgba32;
+	ComPtr<ID3D11ComputeShader> m_d3dCsRgb24WithAlphaToRgba32;
+	ComPtr<ID3D11UnorderedAccessView> m_d3dUavTexture2d;
+
 	std::unordered_map<std::wstring_view, std::tuple<wxBitmapBundle, D2D1_RECT_F>> m_iconBitmapInfo;
 	bool m_isSizing;
 	bool m_enterIsDown;
