@@ -663,16 +663,29 @@ void ComicZipViewerApp::InsertPageNameForReopen(const wxString& prefix, const wx
 
 bool ComicZipViewerApp::Open(const wxString& filePath)
 {
-	auto newPageCollection = PageCollection::Create(filePath);
+	wxFileName path(filePath);
+	auto parentPrefixPath = path.GetPath();
+	wxStructStat stat;
+	wxStat(parentPrefixPath , &stat);
 	auto& bookList = m_pModel->bookList;
+	if(filePath == m_pModel->openedPath )
+	{
+		if ( parentPrefixPath != m_pModel->parentPrefixPath || stat.st_mtime != m_pModel->latestModifiedTime )
+		{
+			bookList = GetBookListInParentDir(parentPrefixPath);
+			m_pModel->parentPrefixPath.swap(parentPrefixPath);
+			m_pModel->latestModifiedTime = stat.st_mtime;
+		}
+
+		return true;
+	}
+
+	auto newPageCollection = PageCollection::Create(filePath);
 	if(newPageCollection == nullptr)
 	{
 		if( !wxFileName::Exists(filePath) )
 		{
 			wxFileName path(filePath);
-			auto parentPrefixPath = path.GetPath();
-			wxStructStat stat;
-			wxStat(parentPrefixPath , &stat);
 			auto newBookList = GetBookListInParentDir(path.GetPath());
 			if( !newBookList.empty() )
 			{
@@ -685,10 +698,7 @@ bool ComicZipViewerApp::Open(const wxString& filePath)
 		return false;
 	}
 
-	wxFileName path(filePath);
-	auto parentPrefixPath = path.GetPath();
-	wxStructStat stat;
-	wxStat(parentPrefixPath , &stat);
+
 	if(parentPrefixPath != m_pModel->parentPrefixPath || stat.st_mtime != m_pModel->latestModifiedTime )
 	{
 		bookList = GetBookListInParentDir(parentPrefixPath);
