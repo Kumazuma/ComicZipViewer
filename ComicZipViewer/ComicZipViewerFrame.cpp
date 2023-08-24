@@ -468,7 +468,7 @@ void ComicZipViewerFrame::Render()
 	}
 
 	hRet = m_d2dContext->EndDraw();
-	hRet = m_swapChain->Present(0, 0);
+	hRet = m_swapChain->Present(1, 0);
 }
 
 void ComicZipViewerFrame::Fullscreen()

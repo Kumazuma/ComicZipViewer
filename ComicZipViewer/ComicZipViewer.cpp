@@ -674,14 +674,28 @@ bool ComicZipViewerApp::Open(const wxString& filePath)
 		if( !wxFile::Exists(filePath) )
 		{
 			wxFileName path(filePath);
+			auto parentPrefixPath = path.GetPath();
+			wxStructStat stat;
+			wxStat(parentPrefixPath , &stat);
 			bookList = GetBookListInParentDir(path.GetPath());
+			m_pModel->parentPrefixPath.swap(parentPrefixPath);
+			m_pModel->latestModifiedTime = stat.st_mtime;
 		}
 
 		return false;
 	}
 
 	wxFileName path(filePath);
-	bookList = GetBookListInParentDir(path.GetPath());
+	auto parentPrefixPath = path.GetPath();
+	wxStructStat stat;
+	wxStat(parentPrefixPath , &stat);
+	if(parentPrefixPath != m_pModel->parentPrefixPath || stat.st_mtime != m_pModel->latestModifiedTime )
+	{
+		bookList = GetBookListInParentDir(parentPrefixPath);
+		m_pModel->parentPrefixPath.swap(parentPrefixPath);
+		m_pModel->latestModifiedTime = stat.st_mtime;
+	}
+
 	if(m_pPageCollection != nullptr)
 	{
 		InsertPageNameForReopen(m_pModel->openedPath, m_pModel->pageName);
