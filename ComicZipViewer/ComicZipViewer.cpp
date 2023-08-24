@@ -297,6 +297,11 @@ void ComicZipViewerApp::AddMarked(int idx)
 		thumbnailWidth = (ratio * 256) / 1024;
 	}
 
+	if( !wxDirExists(m_thunbnailDirPath) )
+	{
+		wxMkdir(m_thunbnailDirPath);
+	}
+
 	auto scaledImage = image.Scale(thumbnailWidth, thumbnailHeight);
 	wxFileName thumbnailFileName(m_thunbnailDirPath, wxS(""));
 	wxFile file;
