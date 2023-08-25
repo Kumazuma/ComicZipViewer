@@ -33,6 +33,7 @@ public:
 	wxString GetNextBook(const wxString& prefix);
 	wxString GetPrevBook(const wxString& prefix);
 	std::vector<wxString> GetBookListInParentDir(const wxString& parentPath);
+	std::vector<std::tuple<wxString, wxString>> GetRecentReadBookAndPage() const;
 private:
 	bool InitializeDatabase();
 	void InsertPageNameForReopen(const wxString& prefix, const wxString& pageName);
@@ -55,6 +56,7 @@ private:
 	sqlite3_stmt* m_pStmtSelectAllPrefix;
 	sqlite3_stmt* m_pStmtSelectAllMarkedPages;
 	sqlite3_stmt* m_pStmtSelectMarkedPage;
+	sqlite3_stmt* m_pStmtSelectLatestReadBookAndPage;
 };
 
 wxDECLARE_APP(ComicZipViewerApp);

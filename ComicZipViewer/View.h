@@ -24,6 +24,7 @@ protected:
 	void OnBackward(wxCommandEvent&);
 	void OnClickedBookmarks(wxCommandEvent&);
 	void OnOpenedBookmark(wxCommandEvent&);
+	void OnMenuRecentFile(wxCommandEvent&);
 private:
 	ComicZipViewerFrame* m_pFrame;
 };

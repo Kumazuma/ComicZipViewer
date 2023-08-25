@@ -10,16 +10,7 @@
 
 wxIMPLEMENT_APP(ComicZipViewerApp);
 
-ComicZipViewerApp::ComicZipViewerApp()
-	: m_pView(nullptr)
-	, m_pModel(nullptr)
-	, m_pPageCollection(nullptr)
-	, m_pSqlite(nullptr)
-	, m_pStmtInsertLatestPage(nullptr)
-	, m_pStmtSelectLatestPage(nullptr)
-	, m_pStmtInsertBookmark(nullptr)
-{
-}
+ComicZipViewerApp::ComicZipViewerApp() = default;
 
 bool ComicZipViewerApp::OnInit()
 {
@@ -86,6 +77,11 @@ int ComicZipViewerApp::OnExit()
 	if(m_pStmtSelectMarkedPage != nullptr)
 	{
 		sqlite3_finalize(m_pStmtSelectMarkedPage);
+	}
+
+	if(m_pStmtSelectLatestReadBookAndPage != nullptr)
+	{
+		sqlite3_finalize(m_pStmtSelectLatestReadBookAndPage);
 	}
 
 	if(m_pSqlite != nullptr)
@@ -156,7 +152,6 @@ bool ComicZipViewerApp::OpenFile(const wxString& filePath)
 		}
 
 		sqlite3_reset(m_pStmtSelectLatestPage);
-
 
 	}
 
@@ -424,8 +419,27 @@ std::vector<wxString> ComicZipViewerApp::GetBookListInParentDir(const wxString& 
 	return list;
 }
 
+std::vector<std::tuple<wxString, wxString>> ComicZipViewerApp::GetRecentReadBookAndPage() const
+{
+	std::vector<std::tuple<wxString, wxString>> list;
+	list.reserve(32);
+	int ret;
+	sqlite3_stmt* const stmt = m_pStmtSelectLatestReadBookAndPage;
+	while((ret = sqlite3_step(stmt)) == SQLITE_ROW)
+	{
+		list.emplace_back(
+			wxString::FromUTF8(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0))),
+			wxString::FromUTF8(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)))
+		);
+	}
+
+	sqlite3_reset(stmt);
+	return list;
+}
+
 bool ComicZipViewerApp::InitializeDatabase()
 {
+	char* errMsg;
 	if(sqlite3_initialize() != SQLITE_OK)
 		return false;
 
@@ -482,13 +496,13 @@ CREATE TABLE tb_bookmarks_v1 (
 
 		static const char* const SQL_CREATE_PAGE_LAST_READ =
 R"(
-CREATE TABLE tb_page_last_read_v1(
+CREATE TABLE tb_page_last_read_v2(
 	prefix TEXT PRIMARY KEY NOT NULL,
-	page_name TEXT
+	page_name TEXT,
+	latest_time TIMESTAMP KEY
 );
 )";
 
-		char* errMsg;
 		ret = sqlite3_exec(m_pSqlite, SQL_CREATE_BOOKMARKS, nullptr, nullptr, &errMsg);
 		if(ret != SQLITE_OK)
 			return false;
@@ -497,23 +511,58 @@ CREATE TABLE tb_page_last_read_v1(
 		if(ret != SQLITE_OK)
 			return false;
 
-		ret = sqlite3_exec(m_pSqlite, "PRAGMA user_version=1;", nullptr, nullptr, &errMsg);
+		ret = sqlite3_exec(m_pSqlite, "PRAGMA user_version=2;", nullptr, nullptr, &errMsg);
 		if(ret != SQLITE_OK)
 			return false;
-		// Create Tables
-		
-		// ret = sqlite3_exec(m_pSqlite, , nullptr, nullptr, &errMsg);
 	}
 	else if(version == 1)
 	{
-		// TODO Check validation
+		// Migrate
+		static const char* const SQL_CREATE_PAGE_LAST_READ =
+R"(
+CREATE TABLE tb_page_last_read_v2(
+	prefix TEXT PRIMARY KEY NOT NULL,
+	page_name TEXT,
+	latest_time TIMESTAMP KEY
+);
+)";
+		
+		ret = sqlite3_exec(m_pSqlite, SQL_CREATE_PAGE_LAST_READ, nullptr, nullptr, &errMsg);
+		if(ret != SQLITE_OK)
+			return false;
 
+		static const char* const SQL_INSERT_USING_OLD_DATA =
+R"(
+INSERT INTO
+	tb_page_last_read_v2 (
+		prefix,
+		page_name,
+		latest_time)
+	SELECT
+		prefix,
+		page_name,
+		unixepoch()
+	FROM
+		tb_page_last_read_v1
+  
+)";
+		ret = sqlite3_exec(m_pSqlite, SQL_INSERT_USING_OLD_DATA, nullptr, nullptr, &errMsg);
+		if(ret != SQLITE_OK)
+			return false;
 
+		ret = sqlite3_exec(m_pSqlite, "DROP TABLE tb_page_last_read_v1", nullptr, nullptr, &errMsg);
+		if(ret != SQLITE_OK)
+			return false;
+
+		ret = sqlite3_exec(m_pSqlite, "PRAGMA user_version=2;", nullptr, nullptr, &errMsg);
+		if(ret != SQLITE_OK)
+			return false;
 	}
-	else if(version < 1)
+	else if(version == 2)
 	{
-		// in future, migrates tables
+			
 	}
+
 
 	// WIP: create tables or migrates tables
 
@@ -522,12 +571,14 @@ CREATE TABLE tb_page_last_read_v1(
 	static constexpr char SQL_INSERT_PAGE_LATEST_READ[] =
 R"(
 INSERT OR REPLACE
-INTO tb_page_last_read_v1(
+INTO tb_page_last_read_v2(
 	prefix,
-	page_name)
+	page_name,
+	latest_time)
 VALUES (
 	?,
-	?);
+	?,
+	unixepoch())
 )";
 
 	ret = sqlite3_prepare(m_pSqlite, SQL_INSERT_PAGE_LATEST_READ, sizeof(SQL_INSERT_PAGE_LATEST_READ) - 1, &m_pStmtInsertLatestPage, nullptr);
@@ -543,7 +594,7 @@ R"(
 SELECT
 	page_name
 FROM
-	tb_page_last_read_v1
+	tb_page_last_read_v2
 WHERE
 	prefix = ?;
 )";
@@ -637,6 +688,25 @@ WHERE
 )";
 
 	ret = sqlite3_prepare(m_pSqlite, SQL_SELECT_MARKED_PAGE, sizeof(SQL_SELECT_MARKED_PAGE) - 1, &m_pStmtSelectMarkedPage, nullptr);
+	if(ret != SQLITE_OK)
+	{
+		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));
+	}
+	assert(ret == SQLITE_OK);
+
+	static constexpr char SQL_SELECT_ALL_LATEST_PAGES[] =
+R"(
+SELECT
+	prefix,
+	page_name
+FROM
+	tb_page_last_read_v2
+ORDER BY
+	latest_time
+DESC
+LIMIT 32
+)";
+	ret = sqlite3_prepare(m_pSqlite, SQL_SELECT_ALL_LATEST_PAGES, sizeof(SQL_SELECT_ALL_LATEST_PAGES) - 1, &m_pStmtSelectLatestReadBookAndPage, nullptr);
 	if(ret != SQLITE_OK)
 	{
 		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));
