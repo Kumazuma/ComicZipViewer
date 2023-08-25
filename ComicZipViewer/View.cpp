@@ -225,16 +225,16 @@ void View::OnClickedBookmarks(wxCommandEvent&)
 {
 	auto& app = wxGetApp();
 	auto bookmarks = app.GetAllMarkedPages();
-	BookmarksDialog diloag;
-	if(!diloag.Create(m_pFrame, wxID_ANY, this, std::forward<decltype(bookmarks)>(bookmarks)))
+	BookmarksDialog dialog;
+	if(!dialog.Create(m_pFrame, wxID_ANY, this, std::forward<decltype(bookmarks)>(bookmarks)))
 		return;
 
-	diloag.CenterOnParent();
-
-	if(diloag.ShowModal() != wxID_OK)
+	dialog.SetSize(m_pFrame->GetSize() / 2);
+	dialog.CenterOnParent();
+	if(dialog.ShowModal() != wxID_OK)
 		return;
 
-	const auto id = diloag.GetSelection();
+	const auto id = dialog.GetSelection();
 	if(id == 0)
 		return;
 
