@@ -63,12 +63,13 @@ bool ComicZipViewerFrame::Create(wxEvtHandler* pView)
 	m_pContextMenu->Append(wxID_OPEN, wxS("Open(&O)"));
 
 
+	m_pRecentFileMenu = new wxMenu();
 	auto* pImageSizingModeMenu = new wxMenu();
 	pImageSizingModeMenu->Append(ID_BTN_ORIGINAL , wxS("original size"));
 	pImageSizingModeMenu->Append(ID_BTN_FIT_WIDTH, wxS("Fit window's width"));
 	pImageSizingModeMenu->Append(ID_BTN_FIT_PAGE , wxS("Fit window's area"));
 	m_pContextMenu->AppendSubMenu(pImageSizingModeMenu , wxS("View modes"));
-
+	m_pContextMenu->AppendSubMenu(m_pRecentFileMenu, wxS("Recent files"));
 	m_pContextMenu->Append(wxID_CLOSE , wxS("Close(&C)"));
 
 	wxBitmapBundle a;
@@ -954,7 +955,6 @@ void ComicZipViewerFrame::GenerateIconBitmaps()
 
 void ComicZipViewerFrame::OnContextMenu(wxContextMenuEvent& evt)
 {
-	m_pContextMenu->SetEventHandler(m_pView);
 	PopupMenu(m_pContextMenu , ScreenToClient(evt.GetPosition()));
 }
 
@@ -1056,6 +1056,17 @@ void ComicZipViewerFrame::ScrollImageVertical(int delta)
 	TryRender();
 }
 
+void ComicZipViewerFrame::OnMenu(wxCommandEvent& evt)
+{
+	auto id = evt.GetId();
+	if(ID_MENU_RECENT_FILE_ITEM_BEGIN <= id && id <= ID_MENU_RECENT_FILE_ITEM_END)
+	{
+		evt.SetString(m_recentFileList[id - ID_MENU_RECENT_FILE_ITEM_BEGIN ]);
+	}
+
+	m_pView->ProcessEventLocally(evt);
+}
+
 void ComicZipViewerFrame::SetSeekBarPos(int value)
 {
 	m_valueSeekBar = value;
@@ -1074,6 +1085,54 @@ void ComicZipViewerFrame::SetPageIsMarked(bool value)
 {
 	m_pageIsMarked = value;
 	TryRender();
+}
+
+void ComicZipViewerFrame::SetRecentFiles(std::vector<std::tuple<wxString, wxString>>&& list)
+{
+	auto items = m_pRecentFileMenu->GetMenuItems();
+	for(auto& it: items)
+	{
+		m_pRecentFileMenu->Delete(it);
+	}
+
+	std::unordered_map<std::wstring_view, wxMenuItem*> roots; // <prefix>
+	std::unordered_map<wxString, std::tuple<wxString*, wxString*> > prefixTreeTextTable; // <NameWithExt, (Prefix, PageName)>
+
+	wxWindowID id = ID_MENU_RECENT_FILE_ITEM_BEGIN;
+	for(auto& tuple: list)
+	{
+		auto& prefix = std::get<0>(tuple);
+		wxFileName prefixFileName(prefix);
+		wxString label;
+		auto nameWithExt = prefixFileName.GetFullName();
+		if(auto it = prefixTreeTextTable.find(nameWithExt); it != prefixTreeTextTable.end())
+		{
+			label = prefix;
+			auto& pPrevPrefix = std::get<0>(it->second);
+			if(pPrevPrefix != nullptr)
+			{
+				auto& menuItem = roots[std::wstring_view(pPrevPrefix->wx_str())];
+				menuItem->SetItemLabel(wxString::Format(wxS("%s > %s"), *pPrevPrefix, *std::get<1>(it->second)));
+				pPrevPrefix = nullptr;
+			}
+		}
+		else
+		{
+			label = nameWithExt;
+			prefixTreeTextTable.emplace(nameWithExt, std::make_tuple(&prefix, &std::get<1>(tuple)));
+		}
+
+		auto item = m_pRecentFileMenu->Append(id, wxString::Format(wxS("%s > %s"), label, std::get<1>(tuple)));
+		roots.emplace(std::get<0>(tuple).wx_str(), item);
+		id += 1;
+	}
+
+	m_recentFileList.clear();
+	m_recentFileList.reserve(list.size());
+	for(auto& tuple: list)
+	{
+		m_recentFileList.emplace_back(std::move(std::get<0>(tuple)));
+	}
 }
 
 void ComicZipViewerFrame::DoThaw()
@@ -1095,4 +1154,5 @@ BEGIN_EVENT_TABLE(ComicZipViewerFrame , wxFrame)
 	EVT_DPI_CHANGED(ComicZipViewerFrame::OnDpiChanged)
 	EVT_CONTEXT_MENU(ComicZipViewerFrame::OnContextMenu)
 	EVT_MOUSEWHEEL(ComicZipViewerFrame::OnMouseWheel)
+	EVT_MENU(wxID_ANY, ComicZipViewerFrame::OnMenu)
 END_EVENT_TABLE()

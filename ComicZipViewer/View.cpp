@@ -19,11 +19,13 @@ View::~View()
 
 void View::Show()
 {
+	auto& app = wxGetApp();
 	m_pFrame = new ComicZipViewerFrame();
 	if(!m_pFrame->Create(this))
 		return;
 
 	m_pFrame->Show();
+	m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
 }
 
 void View::OnMenu(wxCommandEvent& evt)
@@ -46,6 +48,7 @@ void View::OnMenu(wxCommandEvent& evt)
 		wxFileName fileName(app.GetPrefix());
 		wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
 		m_pFrame->Freeze();
+		m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
 		m_pFrame->ShowImage(image);
 		m_pFrame->SetTitle(wxString::Format(wxS("%s : %s [ %d / %d ] - ComicZipViewer") , fileName.GetFullName() , app.GetCurrentPageName() , pageNumber + 1 , pageCount));
 		m_pFrame->SetSeekBarPos(pageNumber);
@@ -121,6 +124,7 @@ void View::OnClickedMoveNextBook(wxCommandEvent&)
 	const int pageNumber = app.GetCurrentPageNumber();
 	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
 	m_pFrame->Freeze();
+	m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
 	m_pFrame->ShowImage(image);
 	m_pFrame->SetTitle(wxString::Format(wxS("%s : %s [ %d / %d ] - ComicZipViewer") , fileName.GetFullName() , app.GetCurrentPageName() , pageNumber + 1 , pageCount));
 	m_pFrame->SetSeekBarPos(pageNumber);
@@ -150,6 +154,7 @@ void View::OnClickedMovePrevBook(wxCommandEvent&)
 	const int pageNumber = app.GetCurrentPageNumber();
 	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
 	m_pFrame->Freeze();
+	m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
 	m_pFrame->ShowImage(image);
 	m_pFrame->SetTitle(wxString::Format(wxS("%s : %s [ %d / %d ] - ComicZipViewer") , fileName.GetFullName() , app.GetCurrentPageName() , pageNumber + 1 , pageCount));
 	m_pFrame->SetSeekBarPos(pageNumber);
@@ -244,6 +249,7 @@ void View::OnClickedBookmarks(wxCommandEvent&)
 	wxFileName fileName(app.GetPrefix());
 	wxImage image = app.GetDecodedImage(pageNumber);
 	m_pFrame->Freeze();
+	m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
 	m_pFrame->ShowImage(image);
 	m_pFrame->SetTitle(wxString::Format(wxS("%s : %s [ %d / %d ] - ComicZipViewer") , fileName.GetFullName() , app.GetCurrentPageName() , pageNumber + 1 , pageCount));
 	m_pFrame->SetSeekBarPos(pageNumber);
@@ -277,11 +283,34 @@ void View::OnOpenedBookmark(wxCommandEvent&)
 	wxFileName fileName(app.GetPrefix());
 	wxImage image = app.GetDecodedImage(pageNumber);
 	m_pFrame->Freeze();
+	m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
 	m_pFrame->ShowImage(image);
 	m_pFrame->SetTitle(wxString::Format(wxS("%s : %s [ %d / %d ] - ComicZipViewer") , fileName.GetFullName() , app.GetCurrentPageName() , pageNumber + 1 , pageCount));
 	m_pFrame->SetSeekBarPos(pageNumber);
 	m_pFrame->SetPageIsMarked(false);
 	if ( app.IsMarkedPage(pageNumber) )
+		m_pFrame->SetPageIsMarked(true);
+
+	m_pFrame->Thaw();
+}
+
+void View::OnMenuRecentFile(wxCommandEvent& evt)
+{
+	auto& app = wxGetApp();
+	if (!app.OpenFile(evt.GetString()))
+		return;
+
+	const int pageCount = app.GetPageCount();
+	const int pageNumber = app.GetCurrentPageNumber();
+	wxFileName fileName(app.GetPrefix());
+	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
+	m_pFrame->Freeze();
+	m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
+	m_pFrame->ShowImage(image);
+	m_pFrame->SetTitle(wxString::Format(wxS("%s : %s [ %d / %d ] - ComicZipViewer") , fileName.GetFullName() , app.GetCurrentPageName() , pageNumber + 1 , pageCount));
+	m_pFrame->SetSeekBarPos(pageNumber);
+	m_pFrame->SetPageIsMarked(false);
+	if(app.IsMarkedPage(pageNumber))
 		m_pFrame->SetPageIsMarked(true);
 
 	m_pFrame->Thaw();
@@ -302,5 +331,6 @@ BEGIN_EVENT_TABLE(View , wxEvtHandler)
 	EVT_BUTTON(ID_BTN_MOVE_TO_NEXT_PAGE, View::OnClickedMoveNextBook)
 	EVT_BUTTON(ID_BTN_MOVE_TO_PREV_PAGE , View::OnClickedMovePrevBook)
 	EVT_COMMAND(wxID_ANY, wxEVT_OPEN_BOOKMARK, View::OnOpenedBookmark)
+	EVT_MENU_RANGE(ID_MENU_RECENT_FILE_ITEM_BEGIN, ID_MENU_RECENT_FILE_ITEM_END, View::OnMenuRecentFile)
 	EVT_MENU(wxID_ANY , View::OnMenu)
 END_EVENT_TABLE()

@@ -33,6 +33,8 @@ constexpr wxWindowID ID_BTN_FIT_PAGE = ID_BTN_FIT_WIDTH + 1;
 constexpr wxWindowID ID_BTN_ORIGINAL =ID_BTN_FIT_PAGE + 1;
 constexpr wxWindowID ID_BTN_BOOKMARK_VIEW = ID_BTN_ORIGINAL + 1;
 constexpr wxWindowID ID_BTN_ADD_MARK = ID_BTN_BOOKMARK_VIEW + 1;
+constexpr wxWindowID ID_MENU_RECENT_FILE_ITEM_BEGIN = ID_BTN_ADD_MARK + 1;
+constexpr wxWindowID ID_MENU_RECENT_FILE_ITEM_END = ID_MENU_RECENT_FILE_ITEM_BEGIN + 33;
 
 class ComicZipViewerFrame: public wxFrame
 {
@@ -46,6 +48,7 @@ public:
 	void SetSeekBarPos(int value);
 	void SetImageViewMode(ImageViewModeKind mode);
 	void SetPageIsMarked(bool);
+	void SetRecentFiles(std::vector<std::tuple<wxString, wxString>>&& list);
 protected:
 	void DoThaw() override;
 	void OnSize(wxSizeEvent& evt);
@@ -70,6 +73,7 @@ protected:
 	void UpdateScaledImageSize();
 	void OnMouseWheel(wxMouseEvent& evt);
 	void ScrollImageVertical(int delta);
+	void OnMenu(wxCommandEvent& evt);
 private:
 	wxEvtHandler* m_pView;
 	wxBitmapBundle m_iconFitPage;
@@ -100,6 +104,7 @@ private:
 	bool m_shownControlPanel;
 	float m_alphaControlPanel;
 	wxMenu* m_pContextMenu;
+	wxMenu* m_pRecentFileMenu;
 	wxSize m_imageSize;
 	wxSize m_clientSize;
 	Rect m_panelRect;
@@ -121,6 +126,7 @@ private:
 	D2D1_SIZE_F m_scaledImageSize;
 	D2D1_SIZE_F m_movableCenterRange;
 	D2D1_POINT_2F m_center;
+	std::vector<wxString> m_recentFileList;
 };
 
 wxDECLARE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);
