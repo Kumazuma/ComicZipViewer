@@ -110,7 +110,13 @@ void View::OnClickedMoveNextBook(wxCommandEvent&)
 		prefix = app.GetNextBook(prefix);
 	} while ( !prefix.IsEmpty() && !app.OpenFile(prefix) );
 
-	wxFileName fileName(prefix);
+	auto& currentPrefix = app.GetPrefix();
+	if ( currentPrefix.IsEmpty() )
+	{
+		return;
+	}
+
+	wxFileName fileName(currentPrefix);
 	const int pageCount = app.GetPageCount();
 	const int pageNumber = app.GetCurrentPageNumber();
 	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
@@ -134,7 +140,12 @@ void View::OnClickedMovePrevBook(wxCommandEvent&)
 		prefix = app.GetPrevBook(prefix);
 	} while ( !prefix.IsEmpty() && !app.OpenFile(prefix) );
 
-	wxFileName fileName(prefix);
+	auto& currentPrefix = app.GetPrefix();
+	if ( currentPrefix.IsEmpty() )
+	{
+		return;
+	}
+	wxFileName fileName(currentPrefix);
 	const int pageCount = app.GetPageCount();
 	const int pageNumber = app.GetCurrentPageNumber();
 	wxImage image = app.GetDecodedImage(app.GetCurrentPageNumber());
