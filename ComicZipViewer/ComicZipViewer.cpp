@@ -142,7 +142,6 @@ bool ComicZipViewerApp::OpenFile(const wxString& filePath)
 		return false;
 	}
 
-
 	{
 		int ret = 0;
 		auto prefix = m_pModel->openedPath.ToUTF8();
@@ -199,11 +198,16 @@ ComPtr<IWICBitmap> ComicZipViewerApp::GetDecodedImage(uint32_t idx)
 	ComPtr<IWICStream> stream;
 	ComPtr<IWICBitmapFrameDecode> decodedFrame;
 	m_wicFactory->CreateStream(&stream);
-	stream->InitializeFromMemory(static_cast<BYTE*>(buffer->GetPointer()), buffer->GetLength());
+	auto bufferStream = new BufferStream(buffer);
+	hr = stream->InitializeFromIStream(bufferStream);
+	bufferStream->Release();
+	assert(SUCCEEDED(hr));
 	ComPtr<IWICBitmapDecoder> decoder;
 	hr = m_wicFactory->CreateDecoderFromStream(stream.Get(), nullptr, WICDecodeMetadataCacheOnDemand, &decoder);
-	if(decoder == nullptr)
+	if(FAILED(hr) || decoder == nullptr)
+	{
 		return {};
+	}
 
 	bool loaded = SUCCEEDED(decoder->GetFrame(0, &decodedFrame));
 	if(loaded)
@@ -215,6 +219,10 @@ ComPtr<IWICBitmap> ComicZipViewerApp::GetDecodedImage(uint32_t idx)
 			|| decodedImagePixelFormat == GUID_WICPixelFormat32bppRGBA)
 		{
 			hr = m_wicFactory->CreateBitmapFromSource(decodedFrame.Get(), WICBitmapCacheOnLoad, &convertedBitmap);
+			if(FAILED(hr))
+			{
+				return {};
+			}
 		}
 		else
 		{
@@ -228,18 +236,19 @@ ComPtr<IWICBitmap> ComicZipViewerApp::GetDecodedImage(uint32_t idx)
 			palette->HasAlpha(&hasAlpha);
 			const WICPixelFormatGUID& pixelFormat = hasAlpha ? GUID_WICPixelFormat32bppRGBA : GUID_WICPixelFormat32bppRGB;
 			hr = converter->Initialize(decodedFrame.Get(), pixelFormat, WICBitmapDitherTypeNone, nullptr, 0.0f, WICBitmapPaletteTypeCustom);
+			if(FAILED(hr))
+			{
+				return {};
+			}
+
 			hr = m_wicFactory->CreateBitmapFromSource(converter.Get(), WICBitmapCacheOnLoad, &convertedBitmap);
+			if(FAILED(hr))
+			{
+				return {};
+			}
+
 		}
-
-		UINT w;
-		UINT h;
-		convertedBitmap->GetSize(&w, &h);
-		ComPtr<IWICBitmapLock> lockker;
-		WICRect r{0, 0, (int)w, (int)h};
-		convertedBitmap->Lock(&r, WICBitmapLockRead, &lockker);
 	}
-
-	delete buffer;
 
 	return convertedBitmap;
 }
