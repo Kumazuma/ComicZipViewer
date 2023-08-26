@@ -146,19 +146,15 @@ void View::OnForward(wxCommandEvent&)
 	auto& app = wxGetApp();
 	const int pageCount = app.GetPageCount();
 	const int latestPageNumber = app.GetCurrentPageNumber();
-	int pageNumber;
-	do
+	app.MoveNextPage();
+	const int pageNumber = app.GetCurrentPageNumber();
+	if ( pageNumber == latestPageNumber )
 	{
-		app.MoveNextPage();
-		pageNumber = app.GetCurrentPageNumber();
-		if ( pageNumber == latestPageNumber )
-		{
-			return;
-		}
+		// TODO: Show toast message
+		return;
+	}
 
-		image = app.GetDecodedImage(pageNumber);
-	} while ( !image );
-
+	image = app.GetDecodedImage(pageNumber);
 	wxFileName fileName(app.GetPrefix());
 	m_pFrame->Freeze();
 	m_pFrame->ShowImage(image);	m_pFrame->SetTitle(wxString::Format(wxS("%s : %s [ %d / %d ] - ComicZipViewer") , fileName.GetFullName() , app.GetCurrentPageName() , pageNumber + 1 , pageCount));
@@ -176,19 +172,15 @@ void View::OnBackward(wxCommandEvent&)
 	auto& app = wxGetApp();
 	const int pageCount = app.GetPageCount();
 	const int latestPageNumber = app.GetCurrentPageNumber();
-	int pageNumber;
-	do
+	app.MovePrevPage();
+	int pageNumber = app.GetCurrentPageNumber();
+	if ( pageNumber == latestPageNumber )
 	{
-		app.MovePrevPage();
-		pageNumber = app.GetCurrentPageNumber();
-		if ( pageNumber == latestPageNumber )
-		{
-			return;
-		}
+		// TODO: Show toast message
+		return;
+	}
 
-		image = app.GetDecodedImage(pageNumber);
-	} while ( !image );
-
+	image = app.GetDecodedImage(pageNumber);
 	wxFileName fileName(app.GetPrefix());
 	m_pFrame->Freeze();
 	m_pFrame->ShowImage(image);
@@ -258,22 +250,8 @@ void View::ShowBook()
 	auto currentPrefix = app.GetPrefix();
 	wxFileName fileName(currentPrefix);
 	const int pageCount = app.GetPageCount();
-	const int beginPageNumber = app.GetCurrentPageNumber();
-	auto image = app.GetDecodedImage(app.GetCurrentPageNumber());
-	int i = 0;
-	while(!image && i < pageCount)
-	{
-		app.MovePage((beginPageNumber + i) % pageCount);
-		image = app.GetDecodedImage(app.GetCurrentPageNumber());
-		i += 1;
-	}
-
-	if(!image)
-	{
-		return;
-	}
-
-	int currentPageNumber = app.GetCurrentPageNumber();
+	const int currentPageNumber = app.GetCurrentPageNumber();
+	auto image = app.GetDecodedImage(currentPageNumber);
 	m_pFrame->Freeze();
 	m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
 	m_pFrame->ShowImage(image);

@@ -191,6 +191,35 @@ void ComicZipViewerFrame::ShowImage(const ComPtr<IWICBitmap>& image)
 {
 	HRESULT hr;
 	ComPtr<ID2D1Bitmap1> bitmap;
+	if(!image)
+	{
+		m_d2dContext->CreateBitmap(D2D1::SizeU(512, 512), nullptr, 0, D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_GDI_COMPATIBLE,
+            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)), &bitmap);
+		m_d2dContext->SetTarget(bitmap.Get());
+		ComPtr<ID2D1GdiInteropRenderTarget> renderTarget;
+		hr = m_d2dContext.As(&renderTarget);
+		HDC hDC;
+		SIZE size;
+		m_d2dContext->BeginDraw();
+		renderTarget->GetDC(D2D1_DC_INITIALIZE_MODE_CLEAR, &hDC);
+		::Rectangle(hDC, 0, 0, 512, 512);
+		::MoveToEx(hDC, 0, 0, nullptr);
+		::LineTo(hDC, 512, 512);
+		::MoveToEx(hDC, 512, 0, nullptr);
+		::LineTo(hDC, 0, 512);
+		::GetTextExtentPointW(hDC, L"Cannot open image file", sizeof(L"Cannot open image file") / sizeof(wchar_t) - 1, &size);
+		TextOutW(hDC, (512 - size.cx) >> 1, (512 - size.cy) >> 1, L"Cannot open image file", sizeof(L"Cannot open image file") / sizeof(wchar_t) - 1);
+		renderTarget->ReleaseDC(nullptr);
+		renderTarget.Reset();
+		m_d2dContext->EndDraw();
+		m_d2dContext->SetTarget(m_targetBitmap.Get());
+		m_bitmap = bitmap;
+		m_imageSize = wxSize(512, 512);
+		UpdateScaledImageSize();
+		TryRender();
+		return;
+	}
+
 	D3D11_TEXTURE2D_DESC texture2dDesc{};
 	WICPixelFormatGUID pixelFormat;
 	image->GetPixelFormat(&pixelFormat);
@@ -199,7 +228,7 @@ void ComicZipViewerFrame::ShowImage(const ComPtr<IWICBitmap>& image)
 	UINT width;
 	UINT height;
 	image->GetSize(&width, &height);
-	bool needCreationTexture = m_bitmap == nullptr || (width != m_imageSize.GetWidth() || height != m_imageSize.GetHeight());
+	bool needCreationTexture = m_bitmap == nullptr || m_d3dTexture2d == nullptr || (width != m_imageSize.GetWidth() || height != m_imageSize.GetHeight());
 	bool needCreationBitmap = needCreationTexture;
 	if(!needCreationBitmap)
 	{
