@@ -59,7 +59,7 @@ bool ComicZipViewerFrame::Create(wxEvtHandler* pView)
 		return false;
 	}
 
-	EnableTouchEvents(wxTOUCH_PAN_GESTURES);
+	// EnableTouchEvents(wxTOUCH_ALL_GESTURES);
 	UpdateClientSize(GetClientSize());
 	m_pContextMenu = new wxMenu();
 	m_pContextMenu->Append(wxID_OPEN, wxS("Open(&O)"));
@@ -192,6 +192,35 @@ void ComicZipViewerFrame::ShowImage(const ComPtr<IWICBitmap>& image)
 {
 	HRESULT hr;
 	ComPtr<ID2D1Bitmap1> bitmap;
+	if(!image)
+	{
+		m_d2dContext->CreateBitmap(D2D1::SizeU(512, 512), nullptr, 0, D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_GDI_COMPATIBLE,
+            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)), &bitmap);
+		m_d2dContext->SetTarget(bitmap.Get());
+		ComPtr<ID2D1GdiInteropRenderTarget> renderTarget;
+		hr = m_d2dContext.As(&renderTarget);
+		HDC hDC;
+		SIZE size;
+		m_d2dContext->BeginDraw();
+		renderTarget->GetDC(D2D1_DC_INITIALIZE_MODE_CLEAR, &hDC);
+		::Rectangle(hDC, 0, 0, 512, 512);
+		::MoveToEx(hDC, 0, 0, nullptr);
+		::LineTo(hDC, 512, 512);
+		::MoveToEx(hDC, 512, 0, nullptr);
+		::LineTo(hDC, 0, 512);
+		::GetTextExtentPointW(hDC, L"Cannot open image file", sizeof(L"Cannot open image file") / sizeof(wchar_t) - 1, &size);
+		TextOutW(hDC, (512 - size.cx) >> 1, (512 - size.cy) >> 1, L"Cannot open image file", sizeof(L"Cannot open image file") / sizeof(wchar_t) - 1);
+		renderTarget->ReleaseDC(nullptr);
+		renderTarget.Reset();
+		m_d2dContext->EndDraw();
+		m_d2dContext->SetTarget(m_targetBitmap.Get());
+		m_bitmap = bitmap;
+		m_imageSize = wxSize(512, 512);
+		UpdateScaledImageSize();
+		TryRender();
+		return;
+	}
+
 	D3D11_TEXTURE2D_DESC texture2dDesc{};
 	WICPixelFormatGUID pixelFormat;
 	image->GetPixelFormat(&pixelFormat);
@@ -200,7 +229,7 @@ void ComicZipViewerFrame::ShowImage(const ComPtr<IWICBitmap>& image)
 	UINT width;
 	UINT height;
 	image->GetSize(&width, &height);
-	bool needCreationTexture = m_bitmap == nullptr || (width != m_imageSize.GetWidth() || height != m_imageSize.GetHeight());
+	bool needCreationTexture = m_bitmap == nullptr || m_d3dTexture2d == nullptr || (width != m_imageSize.GetWidth() || height != m_imageSize.GetHeight());
 	bool needCreationBitmap = needCreationTexture;
 	if(!needCreationBitmap)
 	{
@@ -1052,7 +1081,7 @@ void ComicZipViewerFrame::ScrollImageHorizontal(int delta)
 void ComicZipViewerFrame::ScrollImageVertical(int delta)
 {
 	const float prevCenterY = m_center.y;
-	m_center.y += delta * ( 1.f / 120.f ) * m_movableCenterRange.height * 0.33f;
+	m_center.y += delta * ( 1.f / 120.f ) * m_clientSize.y * 0.33f;
 	float diff = abs(m_center.y) - m_movableCenterRange.height;
 	const bool isOverScroll = diff > 0;
 	if(isOverScroll)
@@ -1100,8 +1129,40 @@ void ComicZipViewerFrame::OnMenu(wxCommandEvent& evt)
 void ComicZipViewerFrame::OnTouchPanEvent(wxPanGestureEvent& evt)
 {
 	auto delta = evt.GetDelta();
-	ScrollImageHorizontal(delta.x);
-	ScrollImageVertical(delta.y);
+	if(delta.x != 0)
+	{
+		ScrollImageHorizontal(delta.x);
+	}
+
+	if(delta.y != 0)
+	{
+		ScrollImageVertical(delta.y);
+	}
+}
+
+void ComicZipViewerFrame::OnTouchLongPressEvent(wxLongPressEvent& evt)
+{
+	PopupMenu(m_pContextMenu , ScreenToClient(evt.GetPosition()));
+}
+
+void ComicZipViewerFrame::OnTouchPressAndTapEvent(wxPressAndTapEvent& evt)
+{
+	if(evt.IsGestureStart() || evt.IsGestureEnd())
+	{
+		
+	}
+	else
+	{
+		
+	}
+}
+
+void ComicZipViewerFrame::BeginButtonProcess(wxPoint& pos)
+{
+}
+
+void ComicZipViewerFrame::EndButtonProcess(wxPoint& pos)
+{
 }
 
 void ComicZipViewerFrame::SetSeekBarPos(int value)
@@ -1193,4 +1254,6 @@ BEGIN_EVENT_TABLE(ComicZipViewerFrame , wxFrame)
 	EVT_MOUSEWHEEL(ComicZipViewerFrame::OnMouseWheel)
 	EVT_MENU(wxID_ANY, ComicZipViewerFrame::OnMenu)
 	EVT_GESTURE_PAN(wxID_ANY, ComicZipViewerFrame::OnTouchPanEvent)
+	EVT_PRESS_AND_TAP(wxID_ANY, ComicZipViewerFrame::OnTouchPressAndTapEvent)
+	EVT_LONG_PRESS(wxID_ANY, ComicZipViewerFrame::OnTouchLongPressEvent)	
 END_EVENT_TABLE()

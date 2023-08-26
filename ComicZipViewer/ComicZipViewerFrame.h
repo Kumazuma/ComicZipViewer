@@ -76,6 +76,10 @@ protected:
 	void ScrollImageVertical(int delta);
 	void OnMenu(wxCommandEvent& evt);
 	void OnTouchPanEvent(wxPanGestureEvent& evt);
+	void OnTouchLongPressEvent(wxLongPressEvent& evt);
+	void OnTouchPressAndTapEvent(wxPressAndTapEvent& evt);
+	void BeginButtonProcess(wxPoint& pos);
+	void EndButtonProcess(wxPoint& pos);
 private:
 	wxEvtHandler* m_pView;
 	wxBitmapBundle m_iconFitPage;
