@@ -18,7 +18,7 @@ public:
 	bool OpenFile(const wxString& filePath);
 	uint32_t GetPageCount() const;
 	bool GetPageName(uint32_t idx, wxString* filename);
-	wxImage GetDecodedImage(uint32_t idx);
+	ComPtr<IWICBitmap> GetDecodedImage(uint32_t idx);
 	const wxString& GetPrefix() const;
 	const wxString& GetCurrentPageName() const;
 	int GetCurrentPageNumber() const;
@@ -38,7 +38,9 @@ private:
 	bool InitializeDatabase();
 	void InsertPageNameForReopen(const wxString& prefix, const wxString& pageName);
 	bool Open(const wxString& filePath);
+
 private:
+	ComPtr<IWICImagingFactory2> m_wicFactory;
 	View* m_pView;
 	Model* m_pModel;
 	PageCollection* m_pPageCollection;
