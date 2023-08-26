@@ -326,10 +326,10 @@ void ComicZipViewerFrame::OnKeyDown(wxKeyEvent& evt)
 	switch(evt.GetKeyCode())
 	{
 	case WXK_UP:
-		ScrollImageVertical(60, true);
+		ScrollImageVertical(m_clientSize.y * 0.04f, true);
 		return;
 	case WXK_DOWN:
-		ScrollImageVertical(-60, true);
+		ScrollImageVertical(m_clientSize.y * -0.04f, true);
 		return;
 
 	case WXK_LEFT:
@@ -579,9 +579,19 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 	if(evt.Dragging() && m_prevMousePosition.has_value())
 	{
 		wxPoint diff = pos - *m_prevMousePosition;
-		m_prevMousePosition = pos;
-		ScrollImageHorizontal(diff.x, false);
-		ScrollImageVertical(diff.y, false);
+		Freeze();
+		if(diff.x != 0)
+		{
+			m_prevMousePosition->x = pos.x;
+			ScrollImageHorizontal(diff.x, false);
+		}
+
+		if(diff.y != 0)
+		{
+			m_prevMousePosition->y = pos.y;
+			ScrollImageVertical(diff.y, false);
+		}
+		Thaw();
 	}
 
 	const wxWindowID prevIdMouseOver = m_idMouseOver;
@@ -1042,11 +1052,11 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 	{
 		if(evt.GetWheelAxis() == wxMOUSE_WHEEL_VERTICAL)
 		{
-			ScrollImageVertical(evt.GetWheelRotation(), true);
+			ScrollImageVertical( m_clientSize.y * 0.08f * (static_cast<float>(evt.GetWheelRotation()) / 120.f), true);
 		}
 		else
 		{
-			ScrollImageHorizontal(-evt.GetWheelRotation(), true);
+			ScrollImageHorizontal(m_clientSize.x * -0.08f * (static_cast<float>(evt.GetWheelRotation()) / 120.f), true);
 		}
 	}
 	else
@@ -1055,19 +1065,19 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 	}
 }
 
-void ComicZipViewerFrame::ScrollImageHorizontal(int delta, bool movableOtherPage)
+void ComicZipViewerFrame::ScrollImageHorizontal(float delta, bool movableOtherPage)
 {
 	const float prevCenterX = m_center.x;
-	m_center.x += delta * ( 1.f / 120.f ) * m_clientSize.x * 0.33f;
-	float diff = abs(m_center.x) - m_movableCenterRange.width;
+	const float currentCenterX = prevCenterX + delta;
+	m_center.x = currentCenterX;
+	float diff = abs(currentCenterX) - m_movableCenterRange.width;
 	const bool isOverScroll = diff > 0;
 	if(isOverScroll)
 	{
-		m_center.x = m_movableCenterRange.width * m_center.x / abs(m_center.x);
+		m_center.x = copysign(m_movableCenterRange.width, delta);
 		if(movableOtherPage)
 		{
-			const float s = std::abs(m_center.x - prevCenterX);
-			m_centerCorrectionValue.x -= s;
+			m_centerCorrectionValue.x -= std::abs(delta);
 			if(m_centerCorrectionValue.x <= 0.f )
 			{
 				wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
@@ -1084,9 +1094,10 @@ void ComicZipViewerFrame::ScrollImageHorizontal(int delta, bool movableOtherPage
 				m_pView->ProcessEvent(event);
 				return;
 			}
+
 		}
 	}
-	else
+	else if(movableOtherPage)
 	{
 		m_centerCorrectionValue.x = m_clientSize.x * 0.5f * 0.49f;
 		m_centerCorrectionValue.y = m_clientSize.y * 0.5f * 0.49f;
@@ -1095,19 +1106,19 @@ void ComicZipViewerFrame::ScrollImageHorizontal(int delta, bool movableOtherPage
 	TryRender();
 }
 
-void ComicZipViewerFrame::ScrollImageVertical(int delta, bool movableOtherPage)
+void ComicZipViewerFrame::ScrollImageVertical(float delta, bool movableOtherPage)
 {
 	const float prevCenterY = m_center.y;
-	m_center.y += delta * ( 1.f / 120.f ) * m_clientSize.y * 0.33f;
+	const float currentCenterY = prevCenterY + delta;
+	m_center.y = currentCenterY;
 	float diff = abs(m_center.y) - m_movableCenterRange.height;
 	const bool isOverScroll = diff > 0;
 	if(isOverScroll)
 	{
-		m_center.y = m_movableCenterRange.height * m_center.y / abs(m_center.y);
+		m_center.y = copysign(m_movableCenterRange.height, delta);
 		if(movableOtherPage)
 		{
-			const float s = std::abs(m_center.y - prevCenterY);
-			m_centerCorrectionValue.y -= s;
+			m_centerCorrectionValue.y -= std::abs(delta);
 			if(m_centerCorrectionValue.y <= 0.f )
 			{
 				wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
@@ -1127,7 +1138,7 @@ void ComicZipViewerFrame::ScrollImageVertical(int delta, bool movableOtherPage)
 		}
 
 	}
-	else
+	else if(movableOtherPage)
 	{
 		m_centerCorrectionValue.x = m_clientSize.x * 0.5f * 0.49f;
 		m_centerCorrectionValue.y = m_clientSize.y * 0.5f * 0.49f;
