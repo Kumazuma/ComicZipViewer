@@ -44,7 +44,7 @@ public:
 	~ComicZipViewerFrame() override;
 	bool Create(wxEvtHandler* pView);
 	WXLRESULT MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam) override;
-	void ShowImage(const wxImage& image);
+	void ShowImage(const ComPtr<IWICBitmap>& image);
 	void SetSeekBarPos(int value);
 	void SetImageViewMode(ImageViewModeKind mode);
 	void SetPageIsMarked(bool);
@@ -97,7 +97,7 @@ private:
 	ComPtr<ID3D11ComputeShader> m_d3dCsRgb24ToRgba32;
 	ComPtr<ID3D11ComputeShader> m_d3dCsRgb24WithAlphaToRgba32;
 	ComPtr<ID3D11UnorderedAccessView> m_d3dUavTexture2d;
-
+	ComPtr<ID3D11Texture2D> m_d3dTexture2d;
 	std::unordered_map<std::wstring_view, std::tuple<wxBitmapBundle, D2D1_RECT_F>> m_iconBitmapInfo;
 	bool m_isSizing;
 	bool m_enterIsDown;
