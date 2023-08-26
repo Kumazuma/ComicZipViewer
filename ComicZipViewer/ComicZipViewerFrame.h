@@ -71,9 +71,9 @@ protected:
 	void GenerateIconBitmaps();
 	void OnContextMenu(wxContextMenuEvent& evt);
 	void UpdateScaledImageSize();
-	void ScrollImageHorizontal(int delta, bool movableOtherPage);
+	void ScrollImageHorizontal(float delta, bool movableOtherPage);
 	void OnMouseWheel(wxMouseEvent& evt);
-	void ScrollImageVertical(int delta, bool movableOtherPage);
+	void ScrollImageVertical(float delta, bool movableOtherPage);
 	void OnMenu(wxCommandEvent& evt);
 	void OnTouchPanEvent(wxPanGestureEvent& evt);
 private:
