@@ -71,9 +71,9 @@ protected:
 	void GenerateIconBitmaps();
 	void OnContextMenu(wxContextMenuEvent& evt);
 	void UpdateScaledImageSize();
-	void ScrollImageHorizontal(int delta);
+	void ScrollImageHorizontal(int delta, bool movableOtherPage);
 	void OnMouseWheel(wxMouseEvent& evt);
-	void ScrollImageVertical(int delta);
+	void ScrollImageVertical(int delta, bool movableOtherPage);
 	void OnMenu(wxCommandEvent& evt);
 	void OnTouchPanEvent(wxPanGestureEvent& evt);
 private:
@@ -119,6 +119,7 @@ private:
 	Rect m_bookmarkViewBtnRect;
 	Rect m_addMarkBtnRect;
 	std::optional<wxPoint> m_offsetSeekbarThumbPos;
+	std::optional<wxPoint> m_prevMousePosition;
 	int m_valueSeekBar;
 	bool m_willRender;
 	bool m_pageIsMarked;

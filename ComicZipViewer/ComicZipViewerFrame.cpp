@@ -326,10 +326,10 @@ void ComicZipViewerFrame::OnKeyDown(wxKeyEvent& evt)
 	switch(evt.GetKeyCode())
 	{
 	case WXK_UP:
-		ScrollImageVertical(60);
+		ScrollImageVertical(60, true);
 		return;
 	case WXK_DOWN:
-		ScrollImageVertical(-60);
+		ScrollImageVertical(-60, true);
 		return;
 
 	case WXK_LEFT:
@@ -576,6 +576,14 @@ void ComicZipViewerFrame::OnMouseLeave(wxMouseEvent& evt)
 void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 {
 	auto pos = evt.GetPosition();
+	if(evt.Dragging() && m_prevMousePosition.has_value())
+	{
+		wxPoint diff = pos - *m_prevMousePosition;
+		m_prevMousePosition = pos;
+		ScrollImageHorizontal(diff.x, false);
+		ScrollImageVertical(diff.y, false);
+	}
+
 	const wxWindowID prevIdMouseOver = m_idMouseOver;
 	m_idMouseOver = wxID_ANY;
 	if(m_bookmarkViewBtnRect.Contain(pos))
@@ -714,6 +722,7 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 	if( m_latestHittenButtonId != wxID_ANY)
 		return;
 
+	const Rect& seekBarRect = m_seekBarRect;
 	const auto pageCount = wxGetApp().GetPageCount();
 	if ( pageCount == 0 )
 		return;
@@ -723,7 +732,6 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 		return;
 
 	const float scale = GetDPIScaleFactor();
-	const Rect& seekBarRect = m_seekBarRect;
 	Rect seekBarJumpHitRect = seekBarRect;
 	seekBarJumpHitRect.top -= SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
 	seekBarJumpHitRect.bottom += SEEK_BAR_TRACK_HEIGHT * 0.5f * scale;
@@ -756,10 +764,16 @@ void ComicZipViewerFrame::OnLMouseDown(wxMouseEvent& evt)
 			m_offsetSeekbarThumbPos = wxPoint(diffX , diffY);
 		}
 	}
+
+	if(!m_offsetSeekbarThumbPos.has_value())
+	{
+		m_prevMousePosition = pos;
+	}
 }
 
 void ComicZipViewerFrame::OnLMouseUp(wxMouseEvent& evt)
 {
+	m_prevMousePosition = std::nullopt;
 	m_offsetSeekbarThumbPos = std::nullopt;
 	const auto pos = evt.GetPosition();
 	if ( m_latestHittenButtonId == wxID_ANY )
@@ -1028,11 +1042,11 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 	{
 		if(evt.GetWheelAxis() == wxMOUSE_WHEEL_VERTICAL)
 		{
-			ScrollImageVertical(evt.GetWheelRotation());
+			ScrollImageVertical(evt.GetWheelRotation(), true);
 		}
 		else
 		{
-			ScrollImageHorizontal(-evt.GetWheelRotation());
+			ScrollImageHorizontal(-evt.GetWheelRotation(), true);
 		}
 	}
 	else
@@ -1041,7 +1055,7 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 	}
 }
 
-void ComicZipViewerFrame::ScrollImageHorizontal(int delta)
+void ComicZipViewerFrame::ScrollImageHorizontal(int delta, bool movableOtherPage)
 {
 	const float prevCenterX = m_center.x;
 	m_center.x += delta * ( 1.f / 120.f ) * m_clientSize.x * 0.33f;
@@ -1049,24 +1063,27 @@ void ComicZipViewerFrame::ScrollImageHorizontal(int delta)
 	const bool isOverScroll = diff > 0;
 	if(isOverScroll)
 	{
-		const float s = std::abs(m_center.x - prevCenterX);
 		m_center.x = m_movableCenterRange.width * m_center.x / abs(m_center.x);
-		m_centerCorrectionValue.x -= s;
-		if(m_centerCorrectionValue.x <= 0.f )
+		if(movableOtherPage)
 		{
-			wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
-			event.SetEventObject(this);
-			if(delta > 0.f)
+			const float s = std::abs(m_center.x - prevCenterX);
+			m_centerCorrectionValue.x -= s;
+			if(m_centerCorrectionValue.x <= 0.f )
 			{
-				event.SetId(wxID_BACKWARD);
-			}
-			else
-			{
-				event.SetId(wxID_FORWARD);
-			}
+				wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
+				event.SetEventObject(this);
+				if(delta > 0.f)
+				{
+					event.SetId(wxID_BACKWARD);
+				}
+				else
+				{
+					event.SetId(wxID_FORWARD);
+				}
 
-			m_pView->ProcessEvent(event);
-			return;
+				m_pView->ProcessEvent(event);
+				return;
+			}
 		}
 	}
 	else
@@ -1078,7 +1095,7 @@ void ComicZipViewerFrame::ScrollImageHorizontal(int delta)
 	TryRender();
 }
 
-void ComicZipViewerFrame::ScrollImageVertical(int delta)
+void ComicZipViewerFrame::ScrollImageVertical(int delta, bool movableOtherPage)
 {
 	const float prevCenterY = m_center.y;
 	m_center.y += delta * ( 1.f / 120.f ) * m_movableCenterRange.height * 0.33f;
@@ -1086,25 +1103,29 @@ void ComicZipViewerFrame::ScrollImageVertical(int delta)
 	const bool isOverScroll = diff > 0;
 	if(isOverScroll)
 	{
-		const float s = std::abs(m_center.y - prevCenterY);
 		m_center.y = m_movableCenterRange.height * m_center.y / abs(m_center.y);
-		m_centerCorrectionValue.y -= s;
-		if(m_centerCorrectionValue.y <= 0.f )
+		if(movableOtherPage)
 		{
-			wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
-			event.SetEventObject(this);
-			if(delta > 0)
+			const float s = std::abs(m_center.y - prevCenterY);
+			m_centerCorrectionValue.y -= s;
+			if(m_centerCorrectionValue.y <= 0.f )
 			{
-				event.SetId(wxID_BACKWARD);
-			}
-			else
-			{
-				event.SetId(wxID_FORWARD);
-			}
+				wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
+				event.SetEventObject(this);
+				if(delta > 0)
+				{
+					event.SetId(wxID_BACKWARD);
+				}
+				else
+				{
+					event.SetId(wxID_FORWARD);
+				}
 
-			m_pView->ProcessEvent(event);
-			return;
+				m_pView->ProcessEvent(event);
+				return;
+			}
 		}
+
 	}
 	else
 	{
@@ -1129,8 +1150,8 @@ void ComicZipViewerFrame::OnMenu(wxCommandEvent& evt)
 void ComicZipViewerFrame::OnTouchPanEvent(wxPanGestureEvent& evt)
 {
 	auto delta = evt.GetDelta();
-	ScrollImageHorizontal(delta.x);
-	ScrollImageVertical(delta.y);
+	ScrollImageHorizontal(delta.x, true);
+	ScrollImageVertical(delta.y, true);
 }
 
 void ComicZipViewerFrame::SetSeekBarPos(int value)
