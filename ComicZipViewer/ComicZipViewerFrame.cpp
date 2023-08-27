@@ -1041,8 +1041,8 @@ void ComicZipViewerFrame::UpdateScaledImageSize()
 		break;
 	}
 
-	m_centerCorrectionValue.x = m_clientSize.x * 0.5f * 0.49f;
-	m_centerCorrectionValue.y = m_clientSize.y * 0.5f * 0.49f;
+	m_centerCorrectionValue.x = m_clientSize.x * 0.08f;
+	m_centerCorrectionValue.y = m_clientSize.y * 0.08f;
 	m_scaledImageSize = D2D1::SizeF(width , height);
 	m_scale = 1.f;
 }
@@ -1101,8 +1101,8 @@ void ComicZipViewerFrame::ScrollImageHorizontal(float delta, bool movableOtherPa
 	}
 	else if(movableOtherPage)
 	{
-		m_centerCorrectionValue.x = m_clientSize.x * 0.5f * 0.49f;
-		m_centerCorrectionValue.y = m_clientSize.y * 0.5f * 0.49f;
+		m_centerCorrectionValue.x = m_clientSize.x * 0.08f;
+		m_centerCorrectionValue.y = m_clientSize.y * 0.08f;
 	}
 
 	TryRender();
