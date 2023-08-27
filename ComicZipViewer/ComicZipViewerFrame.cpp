@@ -1044,6 +1044,7 @@ void ComicZipViewerFrame::UpdateScaledImageSize()
 	m_centerCorrectionValue.x = m_clientSize.x * 0.5f * 0.49f;
 	m_centerCorrectionValue.y = m_clientSize.y * 0.5f * 0.49f;
 	m_scaledImageSize = D2D1::SizeF(width , height);
+	m_scale = 1.f;
 }
 
 void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
@@ -1062,6 +1063,7 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 	else
 	{
 		// TODO: Scale operation
+		ChangeScale(evt.GetWheelRotation() / 12.f, evt.GetPosition());
 	}
 }
 
@@ -1195,6 +1197,45 @@ void ComicZipViewerFrame::BeginButtonProcess(wxPoint& pos)
 
 void ComicZipViewerFrame::EndButtonProcess(wxPoint& pos)
 {
+}
+
+void ComicZipViewerFrame::ChangeScale(float delta, const wxPoint& center)
+{
+	delta *= 0.01f;
+	float x = m_center.x / m_scaledImageSize.width;
+	float y = m_center.y / m_scaledImageSize.height;
+	float scale = m_scale;
+	D2D_SIZE_F imageSize = m_scaledImageSize;
+	imageSize.width *= 1.f / scale;
+	imageSize.height *= 1.f / scale;
+	scale += delta;
+	if(signbit(scale) || scale <= 0.01f)
+	{
+		return;
+	}
+
+	m_scale = scale;
+	m_scaledImageSize.width = imageSize.width * scale;
+	m_scaledImageSize.height = imageSize.height * scale;
+	m_movableCenterRange.width = m_scaledImageSize.width - m_clientSize.x * 0.5f;
+	m_movableCenterRange.height = m_scaledImageSize.height - m_clientSize.y * 0.5f;
+	if(signbit(m_movableCenterRange.width))
+	{
+		m_movableCenterRange.width = 0.f;
+	}
+
+	if(signbit(m_movableCenterRange.height))
+	{
+		m_movableCenterRange.height = 0.f;
+	}
+
+	x *= m_scaledImageSize.width;
+	y *= m_scaledImageSize.height;
+	x = std::copysign(std::min(m_movableCenterRange.width, std::abs(x)), x);
+	y = std::copysign(std::min(m_movableCenterRange.height, std::abs(y)), y);
+	m_center.x = x;
+	m_center.y = y;
+	TryRender();
 }
 
 void ComicZipViewerFrame::SetSeekBarPos(int value)
