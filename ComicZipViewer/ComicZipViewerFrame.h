@@ -75,7 +75,9 @@ protected:
 	void OnMouseWheel(wxMouseEvent& evt);
 	void ScrollImageVertical(float delta, bool movableOtherPage);
 	void OnMenu(wxCommandEvent& evt);
-	void OnTouchPanEvent(wxPanGestureEvent& evt);
+	void BeginButtonProcess(wxPoint& pos);
+	void EndButtonProcess(wxPoint& pos);
+	void ChangeScale(float delta, const wxPoint& center);
 private:
 	wxEvtHandler* m_pView;
 	wxBitmapBundle m_iconFitPage;
@@ -131,6 +133,7 @@ private:
 	D2D1_POINT_2F m_centerCorrectionValue;
 	D2D1_POINT_2F m_center;
 	std::vector<wxString> m_recentFileList;
+	float m_scale;
 };
 
 wxDECLARE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);
