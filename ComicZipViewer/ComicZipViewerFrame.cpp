@@ -12,6 +12,7 @@ wxDEFINE_EVENT(wxEVT_HIDE_CONTROL_PANEL, wxCommandEvent);
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "sqlite.lib")
+#pragma comment(lib, "windowscodecs.lib")
 
 constexpr float SEEK_BAR_PADDING = 15.f;
 constexpr float SEEK_BAR_TRACK_HEIGHT = 5.f;
@@ -186,31 +187,65 @@ WXLRESULT ComicZipViewerFrame::MSWWindowProc(WXUINT message, WXWPARAM wParam, WX
 	return wxFrame::MSWWindowProc(message, wParam, lParam);
 }
 
-void ComicZipViewerFrame::ShowImage(const wxImage& image)
+void ComicZipViewerFrame::ShowImage(const ComPtr<IWICBitmap>& image)
 {
-	const auto hasAlpha = image.HasAlpha();
-	const auto alphaMode = hasAlpha ? D2D1_ALPHA_MODE_PREMULTIPLIED : D2D1_ALPHA_MODE_IGNORE;
-	const auto size = image.GetSize();
-	bool needCreationBitmap = m_bitmap == nullptr;
+	HRESULT hr;
+	ComPtr<ID2D1Bitmap1> bitmap;
+	if(!image)
+	{
+		m_d2dContext->CreateBitmap(D2D1::SizeU(512, 512), nullptr, 0, D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_GDI_COMPATIBLE,
+            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)), &bitmap);
+		m_d2dContext->SetTarget(bitmap.Get());
+		ComPtr<ID2D1GdiInteropRenderTarget> renderTarget;
+		hr = m_d2dContext.As(&renderTarget);
+		HDC hDC;
+		SIZE size;
+		m_d2dContext->BeginDraw();
+		renderTarget->GetDC(D2D1_DC_INITIALIZE_MODE_CLEAR, &hDC);
+		::Rectangle(hDC, 0, 0, 512, 512);
+		::MoveToEx(hDC, 0, 0, nullptr);
+		::LineTo(hDC, 512, 512);
+		::MoveToEx(hDC, 512, 0, nullptr);
+		::LineTo(hDC, 0, 512);
+		::GetTextExtentPointW(hDC, L"Cannot open image file", sizeof(L"Cannot open image file") / sizeof(wchar_t) - 1, &size);
+		TextOutW(hDC, (512 - size.cx) >> 1, (512 - size.cy) >> 1, L"Cannot open image file", sizeof(L"Cannot open image file") / sizeof(wchar_t) - 1);
+		renderTarget->ReleaseDC(nullptr);
+		renderTarget.Reset();
+		m_d2dContext->EndDraw();
+		m_d2dContext->SetTarget(m_targetBitmap.Get());
+		m_bitmap = bitmap;
+		m_imageSize = wxSize(512, 512);
+		UpdateScaledImageSize();
+		TryRender();
+		return;
+	}
+
+	D3D11_TEXTURE2D_DESC texture2dDesc{};
+	WICPixelFormatGUID pixelFormat;
+	image->GetPixelFormat(&pixelFormat);
+	bool hasAlpha = pixelFormat == GUID_WICPixelFormat32bppRGBA;
+	const D2D1_ALPHA_MODE alphaMode = hasAlpha ? D2D1_ALPHA_MODE_PREMULTIPLIED : D2D1_ALPHA_MODE_IGNORE;
+	UINT width;
+	UINT height;
+	image->GetSize(&width, &height);
+	bool needCreationTexture = m_bitmap == nullptr || m_d3dTexture2d == nullptr || (width != m_imageSize.GetWidth() || height != m_imageSize.GetHeight());
+	bool needCreationBitmap = needCreationTexture;
 	if(!needCreationBitmap)
 	{
-		const auto bitmapSize = m_bitmap->GetPixelSize();
-		needCreationBitmap = size.x != bitmapSize.width || size.y != bitmapSize.height;
-		needCreationBitmap = needCreationBitmap || m_bitmap->GetPixelFormat().alphaMode != alphaMode;
+		needCreationBitmap = m_bitmap->GetPixelFormat().alphaMode != alphaMode;
+	}
 
 		if(needCreationBitmap)
 		{
 			m_bitmap.Reset();
 		}
-	}
 
-	HRESULT hr;
-	ComPtr<ID2D1Bitmap1> bitmap;
-	ComPtr<ID3D11Texture2D> texture2d;
-	D3D11_TEXTURE2D_DESC texture2dDesc{};
 
-	if(needCreationBitmap)
+	if(needCreationTexture)
 	{
+		m_d3dTexture2d.Reset();
+		m_d3dUavTexture2d.Reset();
+
 		texture2dDesc.ArraySize = 1;
 		texture2dDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
 		texture2dDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -218,11 +253,11 @@ void ComicZipViewerFrame::ShowImage(const wxImage& image)
 		texture2dDesc.CPUAccessFlags = 0;
 		texture2dDesc.Usage = D3D11_USAGE_DEFAULT;
 		texture2dDesc.SampleDesc.Count = 1;
-		texture2dDesc.Width = size.GetWidth();
-		texture2dDesc.Height = size.GetHeight();
-		hr = m_d3dDevice->CreateTexture2D(&texture2dDesc, nullptr, &texture2d);
+		texture2dDesc.Width = width;
+		texture2dDesc.Height = height;
+		hr = m_d3dDevice->CreateTexture2D(&texture2dDesc, nullptr, &m_d3dTexture2d);
 
-		hr = m_d3dDevice->CreateUnorderedAccessView(texture2d.Get() , nullptr , &m_d3dUavTexture2d);
+		hr = m_d3dDevice->CreateUnorderedAccessView(m_d3dTexture2d.Get() , nullptr , &m_d3dUavTexture2d);
 		assert(SUCCEEDED(hr));
 	}
 	else
@@ -230,62 +265,35 @@ void ComicZipViewerFrame::ShowImage(const wxImage& image)
 		bitmap = m_bitmap;
 	}
 
-	ComPtr<ID3D11Texture2D> rgb24Texture;
-	ComPtr<ID3D11Texture2D> alphaTexture;
-	ComPtr<ID3D11ShaderResourceView> srvRgb24Texture;
-	ComPtr<ID3D11ShaderResourceView> srvAlphaTexture;
-
+	ComPtr<ID3D11Texture2D> srcTexture;
 	texture2dDesc.ArraySize = 1;
 	texture2dDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	texture2dDesc.Format = DXGI_FORMAT_R8_UNORM;
 	texture2dDesc.MipLevels = 1;
 	texture2dDesc.CPUAccessFlags = 0;
 	texture2dDesc.Usage = D3D11_USAGE_DEFAULT;
 	texture2dDesc.SampleDesc.Count = 1;
-	texture2dDesc.Width = size.GetWidth() * 3;
-	texture2dDesc.Height = size.GetHeight();
+	WICRect rect{0, 0, (int)width, (int)height};
+	ComPtr<IWICBitmapLock> locker;
+	hr = image->Lock(&rect, WICBitmapLockRead, &locker);
+	UINT bufferSize;
+	UINT stride;
+	BYTE* ptr;
 	D3D11_SUBRESOURCE_DATA subResData{};
-	const wxByte* const rowData = image.GetData();
-	subResData.pSysMem = rowData;
-	subResData.SysMemPitch = size.GetWidth() * 3;
-	hr = m_d3dDevice->CreateTexture2D(&texture2dDesc , &subResData , &rgb24Texture);
+	locker->GetDataPointer(&bufferSize, &ptr);
+	locker->GetStride(&stride);
+	subResData.pSysMem = ptr;
+	subResData.SysMemPitch = stride;
+	texture2dDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	texture2dDesc.Width = width;
+	texture2dDesc.Height = height;
+	hr = m_d3dDevice->CreateTexture2D(&texture2dDesc , &subResData , &srcTexture);
 	assert(SUCCEEDED(hr));
-
-	hr = m_d3dDevice->CreateShaderResourceView(rgb24Texture.Get(), nullptr, &srvRgb24Texture);
-	assert(SUCCEEDED(hr));
-
-	if(hasAlpha)
-	{
-		texture2dDesc.Width = size.GetWidth();
-		texture2dDesc.Height = size.GetHeight();
-		subResData.pSysMem = image.GetAlpha();
-		subResData.SysMemPitch = size.GetWidth();
-
-		hr = m_d3dDevice->CreateTexture2D(&texture2dDesc , &subResData , &alphaTexture);
-		assert(SUCCEEDED(hr));
-
-		hr = m_d3dDevice->CreateShaderResourceView(alphaTexture.Get() , nullptr , &srvAlphaTexture);
-		assert(SUCCEEDED(hr));
-	}
-
-	ID3D11ShaderResourceView* srvs[] {srvRgb24Texture.Get(), srvAlphaTexture.Get()};
-	ID3D11UnorderedAccessView* uavs[] { m_d3dUavTexture2d.Get()};
-	m_d3dContext->CSSetShaderResources(0, 2, srvs);
-	m_d3dContext->CSSetUnorderedAccessViews(0, 1, uavs, nullptr);
-	if(!hasAlpha)
-	{
-		m_d3dContext->CSSetShader(m_d3dCsRgb24ToRgba32.Get() , nullptr , 0);
-	}
-	else
-	{
-		m_d3dContext->CSSetShader(m_d3dCsRgb24WithAlphaToRgba32.Get() , nullptr , 0);
-	}
+	m_d3dContext->CopyResource(m_d3dTexture2d.Get(), srcTexture.Get());
 	
-	m_d3dContext->Dispatch(size.GetWidth(), size.GetHeight(), 1);
 	if(needCreationBitmap)
 	{
 		ComPtr<IDXGISurface> surface;
-		hr = texture2d.As(&surface);
+		hr = m_d3dTexture2d.As(&surface);
 		hr = m_d2dContext->CreateBitmapFromDxgiSurface(surface.Get(), D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_NONE, D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, alphaMode)), &bitmap);
 		if(FAILED(hr))
 		{
@@ -295,7 +303,7 @@ void ComicZipViewerFrame::ShowImage(const wxImage& image)
 	}
 
 	m_bitmap = bitmap;
-	m_imageSize = size;
+	m_imageSize = wxSize(width, height);
 	UpdateScaledImageSize();
 	TryRender();
 }

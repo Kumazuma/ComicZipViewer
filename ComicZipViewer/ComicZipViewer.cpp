@@ -17,6 +17,15 @@ bool ComicZipViewerApp::OnInit()
 	if(!wxApp::OnInit())
 		return false;
 
+	HRESULT hr;
+	hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, __uuidof(m_wicFactory), &m_wicFactory);
+	assert(SUCCEEDED(hr));
+	if(FAILED(hr))
+	{
+		wxLogError(wxS("Failed to create WIC Imaging Factory Instance"));
+		return false;
+	}
+
 	SetAppName(wxS("ComicZipViewer"));
 	SetVendorName(wxS("ROW"));
 
@@ -133,7 +142,6 @@ bool ComicZipViewerApp::OpenFile(const wxString& filePath)
 		return false;
 	}
 
-
 	{
 		int ret = 0;
 		auto prefix = m_pModel->openedPath.ToUTF8();
@@ -175,51 +183,74 @@ bool ComicZipViewerApp::GetPageName(uint32_t idx, wxString* filename)
 constexpr uint64_t MAGIC_NUMBER_PNG = 0x89504e470d0a1a0a;
 constexpr uint64_t MAGIC_NUMBER_GIF87A = 0x4749463837610000; // GIF87a;
 constexpr uint64_t MAGIC_NUMBER_GIF89A = 0x4749463839610000; // GIF89a;
-wxImage ComicZipViewerApp::GetDecodedImage(uint32_t idx)
+ComPtr<IWICBitmap> ComicZipViewerApp::GetDecodedImage(uint32_t idx)
 {
-	wxImage image;
+	HRESULT hr;
 	if(m_pModel->pageList.size() <= idx)
 		return {};
 
 	// TODO: Not implemented yet Cache;
+	ComPtr<IWICBitmap> convertedBitmap;
 	auto& filename = *(m_pModel->pageList.data() + idx);
+	auto ext = wxFileName(filename).GetExt().Lower();
 	auto buffer = m_pPageCollection->GetPage(filename);
 	assert(buffer != nullptr);
-	wxMemoryInputStream memStream(buffer->GetPointer(), buffer->GetLength());
-	// Check png
-	uint64_t masicNumber = 0;
-	const uint32_t readByteCount = buffer->Copy(&masicNumber, 0, 8);
-	bool loaded = false;
-	masicNumber = wxUINT64_SWAP_ON_LE(masicNumber);
-	if(readByteCount == 8 && masicNumber == MAGIC_NUMBER_PNG)
+	ComPtr<IWICStream> stream;
+	ComPtr<IWICBitmapFrameDecode> decodedFrame;
+	m_wicFactory->CreateStream(&stream);
+	auto bufferStream = new BufferStream(buffer);
+	hr = stream->InitializeFromIStream(bufferStream);
+	bufferStream->Release();
+	assert(SUCCEEDED(hr));
+	ComPtr<IWICBitmapDecoder> decoder;
+	hr = m_wicFactory->CreateDecoderFromStream(stream.Get(), nullptr, WICDecodeMetadataCacheOnDemand, &decoder);
+	if(FAILED(hr) || decoder == nullptr)
 	{
-		loaded  = m_pngHandler.LoadFile(&image, memStream, false);
+		return {};
 	}
 
-	// JPEG has no magic number
-	if(!loaded && m_jpegHandler.CanRead(memStream))
-	{
-		loaded = m_jpegHandler.LoadFile(&image, memStream, false);
-	}
-
-	if(!loaded && readByteCount >= 6)
-	{
-		const uint64_t masicNumber6Octet = masicNumber & (~0x000000000000FFFF);
-		if(masicNumber6Octet == MAGIC_NUMBER_GIF87A || masicNumber6Octet == MAGIC_NUMBER_GIF89A)
-		{
-			loaded = m_gifHandler.LoadFile(&image, memStream, false);
-		}
-	}
-
+	bool loaded = SUCCEEDED(decoder->GetFrame(0, &decodedFrame));
 	if(loaded)
 	{
 		m_latestLoadedImageIdx = idx;
-		m_latestLoadedImage = image;
+		WICPixelFormatGUID decodedImagePixelFormat;
+		decodedFrame->GetPixelFormat(&decodedImagePixelFormat);
+		if(decodedImagePixelFormat == GUID_WICPixelFormat32bppRGB
+			|| decodedImagePixelFormat == GUID_WICPixelFormat32bppRGBA)
+		{
+			hr = m_wicFactory->CreateBitmapFromSource(decodedFrame.Get(), WICBitmapCacheOnLoad, &convertedBitmap);
+			if(FAILED(hr))
+			{
+				return {};
+			}
+		}
+		else
+		{
+			ComPtr<IWICFormatConverter> converter;
+			m_wicFactory->CreateFormatConverter(&converter);
+
+			ComPtr<IWICPalette> palette;
+			m_wicFactory->CreatePalette(&palette);
+			decodedFrame->CopyPalette(palette.Get());
+			BOOL hasAlpha;
+			palette->HasAlpha(&hasAlpha);
+			const WICPixelFormatGUID& pixelFormat = hasAlpha ? GUID_WICPixelFormat32bppRGBA : GUID_WICPixelFormat32bppRGB;
+			hr = converter->Initialize(decodedFrame.Get(), pixelFormat, WICBitmapDitherTypeNone, nullptr, 0.0f, WICBitmapPaletteTypeCustom);
+			if(FAILED(hr))
+			{
+				return {};
+			}
+
+			hr = m_wicFactory->CreateBitmapFromSource(converter.Get(), WICBitmapCacheOnLoad, &convertedBitmap);
+			if(FAILED(hr))
+			{
+				return {};
+			}
+
+		}
 	}
 
-	delete buffer;
-
-	return image;
+	return convertedBitmap;
 }
 
 const wxString& ComicZipViewerApp::GetPrefix() const
@@ -268,33 +299,26 @@ void ComicZipViewerApp::MovePage(int idx)
 
 void ComicZipViewerApp::AddMarked(int idx)
 {
-	wxImage image;
+	ComPtr<IWICBitmap> image;
 	const wxString& pageName = m_pModel->pageList[idx];
 	if(m_pModel->markedPageSet.find(pageName) != m_pModel->markedPageSet.end())
 		return;
 
-	if(m_latestLoadedImageIdx != idx)
-	{
-		image = GetDecodedImage(idx);
-		
-	}
-	else
-	{
-		image = m_latestLoadedImage;
-	}
-
+	image = GetDecodedImage(idx);
 	int thumbnailWidth;
 	int thumbnailHeight;
-	auto imageSize = image.GetSize();
-	if(imageSize.x > imageSize.y)
+	UINT width;
+	UINT height;
+	image->GetSize(&width, &height);
+	if(width > height)
 	{
-		int ratio = (1024 * imageSize.y) / imageSize.x;
+		UINT ratio = (1024 * height) / width;
 		thumbnailWidth = 256;
 		thumbnailHeight = (ratio * 256) / 1024;
 	}
 	else
 	{
-		int ratio = (1024 * imageSize.x) / imageSize.y;
+		UINT ratio = (1024 * width) / height;
 		thumbnailHeight = 256;
 		thumbnailWidth = (ratio * 256) / 1024;
 	}
@@ -304,16 +328,16 @@ void ComicZipViewerApp::AddMarked(int idx)
 		wxMkdir(m_thunbnailDirPath);
 	}
 
-	auto scaledImage = image.Scale(thumbnailWidth, thumbnailHeight);
-	wxFileName thumbnailFileName(m_thunbnailDirPath, wxS(""));
-	wxFile file;
-	thumbnailFileName.AssignTempFileName(m_thunbnailDirPath + wxS("/"), &file);
-	wxFileOutputStream oStream(file);
-	scaledImage.SaveFile(oStream, wxBITMAP_TYPE_JPEG);
-	auto thumbnailPath = thumbnailFileName.GetFullPath();
+	//auto scaledImage = image.Scale(thumbnailWidth, thumbnailHeight);
+	//wxFileName thumbnailFileName(m_thunbnailDirPath, wxS(""));
+	//wxFile file;
+	//thumbnailFileName.AssignTempFileName(m_thunbnailDirPath + wxS("/"), &file);
+	//wxFileOutputStream oStream(file);
+	//scaledImage.SaveFile(oStream, wxBITMAP_TYPE_JPEG);
+	//auto thumbnailPath = thumbnailFileName.GetFullPath();
 	sqlite3_bind_text16(m_pStmtInsertBookmark, 1, m_pModel->openedPath.wx_str(), -1, nullptr);
 	sqlite3_bind_text16(m_pStmtInsertBookmark, 2, pageName.wx_str(), -1, nullptr);
-	sqlite3_bind_text16(m_pStmtInsertBookmark, 3, thumbnailPath.wx_str(), -1, nullptr);
+	sqlite3_bind_text16(m_pStmtInsertBookmark, 3, u8"", -1, nullptr);
 	int ret = sqlite3_step(m_pStmtInsertBookmark);
 	assert(ret == SQLITE_DONE);
 
@@ -809,6 +833,9 @@ bool ComicZipViewerApp::Open(const wxString& filePath)
 				break;
 
 			if(ext == wxS("gif"))
+				break;
+
+			if(ext == wxS("webp"))
 				break;
 
 			isImageFile = false;

@@ -10,4 +10,7 @@
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
 #include <unordered_map>
+#include <wincodec.h>
+#include <atomic>
+
 using namespace Microsoft::WRL;
