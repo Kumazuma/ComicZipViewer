@@ -71,9 +71,13 @@ protected:
 	void GenerateIconBitmaps();
 	void OnContextMenu(wxContextMenuEvent& evt);
 	void UpdateScaledImageSize();
+	void ScrollImageHorizontal(float delta, bool movableOtherPage);
 	void OnMouseWheel(wxMouseEvent& evt);
-	void ScrollImageVertical(int delta);
+	void ScrollImageVertical(float delta, bool movableOtherPage);
 	void OnMenu(wxCommandEvent& evt);
+	void BeginButtonProcess(wxPoint& pos);
+	void EndButtonProcess(wxPoint& pos);
+	void ChangeScale(float delta, const wxPoint& center);
 private:
 	wxEvtHandler* m_pView;
 	wxBitmapBundle m_iconFitPage;
@@ -117,6 +121,7 @@ private:
 	Rect m_bookmarkViewBtnRect;
 	Rect m_addMarkBtnRect;
 	std::optional<wxPoint> m_offsetSeekbarThumbPos;
+	std::optional<wxPoint> m_prevMousePosition;
 	int m_valueSeekBar;
 	bool m_willRender;
 	bool m_pageIsMarked;
@@ -125,8 +130,10 @@ private:
 	wxWindowID m_latestHittenButtonId;
 	D2D1_SIZE_F m_scaledImageSize;
 	D2D1_SIZE_F m_movableCenterRange;
+	D2D1_POINT_2F m_centerCorrectionValue;
 	D2D1_POINT_2F m_center;
 	std::vector<wxString> m_recentFileList;
+	float m_scale;
 };
 
 wxDECLARE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);
