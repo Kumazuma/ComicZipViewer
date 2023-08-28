@@ -72,7 +72,7 @@ void ToastSystem::Toast::Render(float dpi, const ComPtr<ID2D1DeviceContext1>& co
 	float alpha = 0.f;
 	if(m_duration <= 4096ull / 4)
 	{
-		alpha = m_duration * (1.f / 4096.f);
+		alpha = m_duration * (1.f / 1024.f);
 	}
 	else if(m_duration < 4096ull * 3 / 4)
 	{
@@ -80,10 +80,10 @@ void ToastSystem::Toast::Render(float dpi, const ComPtr<ID2D1DeviceContext1>& co
 	}
 	else if(m_duration <= 4096ull * 1ull)
 	{
-		alpha = (4096ull - m_duration) * (1.f / 4096.f);
+		alpha = (4096ull - m_duration) * (1.f / 1024.f);
 	}
 
-	alpha *= 0.8f;
+	alpha *= 0.9f;
 	float boxWidth = m_size.width + 15 * dpi;
 	float boxHeight = m_size.height + 15 * dpi;
 	boxWidth = std::max(boxWidth, 120.f * dpi);
