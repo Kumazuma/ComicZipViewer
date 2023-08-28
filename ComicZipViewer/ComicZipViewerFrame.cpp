@@ -13,6 +13,7 @@ wxDEFINE_EVENT(wxEVT_HIDE_CONTROL_PANEL, wxCommandEvent);
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "dwrite.lib")
 #pragma comment(lib, "sqlite.lib")
 #pragma comment(lib, "windowscodecs.lib")
 
@@ -29,7 +30,6 @@ constexpr std::wstring_view ID_SVG_MOVE_TO_NEXT_BOOK = wxS("ID_SVG_MOVE_TO_NEXT_
 constexpr std::wstring_view ID_SVG_MOVE_TO_PREV_BOOK = wxS("ID_SVG_MOVE_TO_PREV_BOOK");
 
 ComicZipViewerFrame::ComicZipViewerFrame()
-
 	: m_isSizing(false)
 	, m_enterIsDown(false)
 	, m_pContextMenu(nullptr)
@@ -42,6 +42,7 @@ ComicZipViewerFrame::ComicZipViewerFrame()
 	, m_latestHittenButtonId(wxID_ANY)
 	, m_idMouseOver(wxID_ANY)
 	, m_pageIsMarked(false)
+	, m_toastSystem(this)
 {
 }
 
@@ -62,7 +63,6 @@ bool ComicZipViewerFrame::Create(wxEvtHandler* pView)
 	}
 
 	EnableTouchEvents(wxTOUCH_PAN_GESTURES);
-	UpdateClientSize(GetClientSize());
 	m_pContextMenu = new wxMenu();
 	m_pContextMenu->Append(wxID_OPEN, wxS("Open(&O)"));
 
@@ -160,6 +160,12 @@ bool ComicZipViewerFrame::Create(wxEvtHandler* pView)
 
 	m_d3dDevice->CreateComputeShader(CsRgb24ToRgba32, sizeof(CsRgb24ToRgba32), nullptr, &m_d3dCsRgb24ToRgba32);
 	m_d3dDevice->CreateComputeShader(CsRgb24WithAlphaToRgba32 , sizeof(CsRgb24WithAlphaToRgba32) , nullptr , &m_d3dCsRgb24WithAlphaToRgba32);
+	m_toastSystem.SetFont(GetFont());
+	m_toastSystem.SetColor(m_d2dContext, D2D1::ColorF(D2D1::ColorF::White), D2D1::ColorF(D2D1::ColorF(D2D1::ColorF::Black)));
+	UpdateClientSize(GetClientSize());
+
+	m_toastSystem.AddMessage(wxS("대충 개행도 되어 있고\n존나 긴 토스트 메시지\n\nHello World!"), wxID_ANY, true);
+
 	return true;
 }
 
@@ -197,7 +203,7 @@ void ComicZipViewerFrame::ShowImage(const ComPtr<IWICBitmap>& image)
 	if(!image)
 	{
 		m_d2dContext->CreateBitmap(D2D1::SizeU(512, 512), nullptr, 0, D2D1::BitmapProperties1(D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_GDI_COMPATIBLE,
-            D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)), &bitmap);
+			D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)), &bitmap);
 		m_d2dContext->SetTarget(bitmap.Get());
 		ComPtr<ID2D1GdiInteropRenderTarget> renderTarget;
 		hr = m_d2dContext.As(&renderTarget);
@@ -485,9 +491,9 @@ void ComicZipViewerFrame::Render()
 	hRet = m_swapChain->Present(1, 0);
 }
 
-void ComicZipViewerFrame::ShowToast(const wxString& text)
+void ComicZipViewerFrame::ShowToast(const wxString& text, bool preventSameToast)
 {
-	m_toastSystem.ShowMessage(text);
+	m_toastSystem.AddMessage(text, wxID_ANY, preventSameToast);
 }
 
 void ComicZipViewerFrame::Fullscreen()
@@ -890,6 +896,8 @@ void ComicZipViewerFrame::UpdateClientSize(const wxSize& sz)
 	m_addMarkBtnRect.top = m_seekBarRect.bottom + 10 * scale;
 	m_addMarkBtnRect.bottom = m_addMarkBtnRect.top + 64 * scale;
 	UpdateScaledImageSize();
+
+	m_toastSystem.SetClientSize(GetDPIScaleFactor(), sz);
 }
 
 void ComicZipViewerFrame::TryRender()
@@ -1077,6 +1085,8 @@ void ComicZipViewerFrame::ScrollImageHorizontal(float delta, bool movableOtherPa
 			m_centerCorrectionValue.x -= std::abs(delta);
 			if(m_centerCorrectionValue.x <= 0.f )
 			{
+				m_centerCorrectionValue.x = m_clientSize.x * 0.08f;
+				m_centerCorrectionValue.y = m_clientSize.y * 0.08f;
 				wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
 				event.SetEventObject(this);
 				if(delta > 0.f)
@@ -1118,6 +1128,8 @@ void ComicZipViewerFrame::ScrollImageVertical(float delta, bool movableOtherPage
 			m_centerCorrectionValue.y -= std::abs(delta);
 			if(m_centerCorrectionValue.y <= 0.f )
 			{
+				m_centerCorrectionValue.x = m_clientSize.x * 0.08f;
+				m_centerCorrectionValue.y = m_clientSize.y * 0.08f;
 				wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
 				event.SetEventObject(this);
 				if(delta > 0)

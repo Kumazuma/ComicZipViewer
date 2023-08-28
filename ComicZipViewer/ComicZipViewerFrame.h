@@ -53,7 +53,7 @@ public:
 	void SetRecentFiles(std::vector<std::tuple<wxString, wxString>>&& list);
 	void TryRender();
 	void Render();
-	void ShowToast(const wxString& text);
+	void ShowToast(const wxString& text, bool preventSameToast);
 protected:
 	void DoThaw() override;
 	void OnSize(wxSizeEvent& evt);

@@ -41,7 +41,10 @@ void View::OnMenu(wxCommandEvent& evt)
 		auto path = dialog.GetPath();
 		auto& app = wxGetApp();
 		if (!app.OpenFile(path))
+		{
+			m_pFrame->ShowToast(wxS("해당 위치에 이미지 파일이 없거나, 파일을 열 수 없습니다."), true);
 			return;
+		}
 
 		const int pageCount = app.GetPageCount();
 		const int pageNumber = app.GetCurrentPageNumber();
@@ -150,7 +153,7 @@ void View::OnForward(wxCommandEvent&)
 	const int pageNumber = app.GetCurrentPageNumber();
 	if ( pageNumber == latestPageNumber )
 	{
-		// TODO: Show toast message
+		m_pFrame->ShowToast(wxS("마지막 페이지입니다."), true);
 		return;
 	}
 
@@ -176,7 +179,7 @@ void View::OnBackward(wxCommandEvent&)
 	int pageNumber = app.GetCurrentPageNumber();
 	if ( pageNumber == latestPageNumber )
 	{
-		// TODO: Show toast message
+		m_pFrame->ShowToast(wxS("첫 페이지입니다."), true);
 		return;
 	}
 

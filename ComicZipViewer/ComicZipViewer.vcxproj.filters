@@ -151,6 +151,7 @@
       <Filter>리소스 파일</Filter>
     </None>
     <None Include="star-line-svgrepo-com.svg" />
+    <None Include=".editorconfig" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="CS_RGB24_TO_RGBA32.hlsl">
