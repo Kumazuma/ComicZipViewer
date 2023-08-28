@@ -160,12 +160,16 @@ bool ComicZipViewerFrame::Create(wxEvtHandler* pView)
 
 	m_d3dDevice->CreateComputeShader(CsRgb24ToRgba32, sizeof(CsRgb24ToRgba32), nullptr, &m_d3dCsRgb24ToRgba32);
 	m_d3dDevice->CreateComputeShader(CsRgb24WithAlphaToRgba32 , sizeof(CsRgb24WithAlphaToRgba32) , nullptr , &m_d3dCsRgb24WithAlphaToRgba32);
-	m_toastSystem.SetFont(GetFont());
+	auto font = GetFont();
+	font.SetFractionalPointSize(font.GetFractionalPointSize() * 4);
+	font.SetWeight(wxFONTWEIGHT_HEAVY);
+
+	m_toastSystem.SetFont(font);
 	m_toastSystem.SetColor(m_d2dContext, D2D1::ColorF(D2D1::ColorF::White), D2D1::ColorF(D2D1::ColorF(D2D1::ColorF::Black)));
 	UpdateClientSize(GetClientSize());
 
 	m_toastSystem.AddMessage(wxS("대충 개행도 되어 있고\n존나 긴 토스트 메시지\n\nHello World!"), wxID_ANY, true);
-
+	
 	return true;
 }
 
