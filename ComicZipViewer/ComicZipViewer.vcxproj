@@ -161,6 +161,7 @@
     <ClInclude Include="BookmarksDialog.h" />
     <ClInclude Include="ComicZipViewer.h" />
     <ClInclude Include="ComicZipViewerFrame.h" />
+    <ClInclude Include="Event.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="IAllocator.h" />
     <ClInclude Include="IBuffer.h" />
@@ -180,6 +181,7 @@
     <ClCompile Include="BookmarksDialog.cpp" />
     <ClCompile Include="ComicZipViewer.cpp" />
     <ClCompile Include="ComicZipViewerFrame.cpp" />
+    <ClCompile Include="Event.cpp" />
     <ClCompile Include="IAllocator.cpp" />
     <ClCompile Include="IBuffer.cpp" />
     <ClCompile Include="Model.cpp" />

@@ -479,8 +479,15 @@ void ComicZipViewerFrame::Render()
 		m_d2dContext->PopLayer();
 	}
 
+	m_toastSystem.Render(m_d2dContext);
+
 	hRet = m_d2dContext->EndDraw();
 	hRet = m_swapChain->Present(1, 0);
+}
+
+void ComicZipViewerFrame::ShowToast(const wxString& text)
+{
+	m_toastSystem.ShowMessage(text);
 }
 
 void ComicZipViewerFrame::Fullscreen()
