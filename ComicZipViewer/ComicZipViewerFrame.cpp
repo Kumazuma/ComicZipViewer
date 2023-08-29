@@ -168,8 +168,6 @@ bool ComicZipViewerFrame::Create(wxEvtHandler* pView)
 	m_toastSystem.SetColor(m_d2dContext, D2D1::ColorF(D2D1::ColorF::White), D2D1::ColorF(D2D1::ColorF(D2D1::ColorF::Black)));
 	UpdateClientSize(GetClientSize());
 
-	m_toastSystem.AddMessage(wxS("대충 개행도 되어 있고\n존나 긴 토스트 메시지\n\nHello World!"), wxID_ANY, true);
-	
 	return true;
 }
 
