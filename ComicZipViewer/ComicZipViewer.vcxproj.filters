@@ -72,6 +72,12 @@
     <ClInclude Include="PageCollectionCbt.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="D2DFrame.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="CustomCaptionFrame.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ComicZipViewer.cpp">
@@ -117,6 +123,12 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="Event.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="D2DFrame.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="CustomCaptionFrame.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="PageCollectionCbt.cpp">

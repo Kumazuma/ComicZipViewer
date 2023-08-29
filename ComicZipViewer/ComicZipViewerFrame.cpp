@@ -251,7 +251,6 @@ void ComicZipViewerFrame::ShowImage(const ComPtr<IWICBitmap>& image)
 		m_bitmap.Reset();
 	}
 
-
 	if(needCreationTexture)
 	{
 		m_d3dTexture2d.Reset();
