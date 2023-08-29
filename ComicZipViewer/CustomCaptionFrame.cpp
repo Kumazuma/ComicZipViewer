@@ -13,6 +13,7 @@ CustomCaptionFrame::CustomCaptionFrame()
 , m_borderPadding()
 , m_borderThickness()
 , m_willRender()
+, m_buttonDownedId(wxID_ANY)
 {
 }
 
@@ -34,6 +35,15 @@ bool CustomCaptionFrame::Create(wxWindow* parent, wxWindowID id, const wxString&
 	int dpi = GetDPI().x;
 	UpdateCaptionDesc(dpi);
 	m_renderSystem.Initalize(this, GetClientSize());
+
+	auto rect = GetRect();
+	SetWindowPos(
+		GetHWND(), nullptr,
+		rect.GetX(), rect.GetY(),
+		rect.GetWidth(), rect.GetHeight(),
+		SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOSENDCHANGING
+	);
+
 	return true;
 }
 
@@ -51,6 +61,9 @@ WXLRESULT CustomCaptionFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPAR
 	}
 		
 		break;
+
+	case WM_NCPAINT:
+		return DefWindowProcW(GetHWND(), nMsg, wParam, lParam);
 
 	case WM_NCCALCSIZE:
 		return OnNcCalcSize(nMsg, wParam, lParam);
@@ -98,7 +111,11 @@ void CustomCaptionFrame::Render()
 	d2dContext->BeginDraw();
 	d2dContext->Clear(D2D1::ColorF(0.3f, 0.3f, 0.3f, 1.f));
 	DoRender();
-	RenderCaption();
+	if(!IsFullScreen())
+	{
+		RenderCaption();
+	}
+	
 	d2dContext->EndDraw();
 	swapchain->Present(1, 0);
 }
@@ -153,6 +170,7 @@ inline D2D1_RECT_F GetRect(wxRect& rc)
 
 void CustomCaptionFrame::RenderCaption()
 {
+	ComPtr<ID2D1SolidColorBrush> lightGrayBrush;
 	ComPtr<ID2D1SolidColorBrush> hoveredColorBrush;
 	ComPtr<ID2D1SolidColorBrush> buttonColorBrush;
 	ComPtr<ID2D1SolidColorBrush> whiteColorBrush;
@@ -166,6 +184,7 @@ void CustomCaptionFrame::RenderCaption()
 	m_renderSystem.GetSolidColorBrush(D2D1::ColorF(130.f / 255.f, 130.f / 255.f, 130.f / 255.f, 1.f), &hoveredColorBrush);
 	m_renderSystem.GetSolidColorBrush(buttonColor, &buttonColorBrush);
 	m_renderSystem.GetSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &whiteColorBrush);
+	m_renderSystem.GetSolidColorBrush(D2D1::ColorF(D2D1::ColorF::LightGray), &lightGrayBrush);
 	m_renderSystem.GetD2DDeviceContext(&context);
 	// Paint Title Bar
 	const int dpi = GetDPI().x;
@@ -186,12 +205,18 @@ void CustomCaptionFrame::RenderCaption()
 		break;
 	}
 
+	context->FillRectangle(D2D1::RectF(
+		m_titleBarButtonRects.minimize.GetLeft(),
+		m_titleBarButtonRects.minimize.GetTop(),
+		m_titleBarButtonRects.close.GetRight() + 1.f,
+		m_titleBarButtonRects.close.GetBottom()
+	), lightGrayBrush.Get());
 	if(rc != nullptr)
 	{
 		auto rcf = D2D1::RectF(
 			(float)rc->GetLeft(),
 			(float)rc->GetTop(),
-			(float)rc->GetRight(),
+			(float)rc->GetRight() + 1.f,
 			(float)rc->GetBottom()
 		);
 
@@ -242,6 +267,26 @@ void CustomCaptionFrame::DoThaw()
 	Render();
 }
 
+void CustomCaptionFrame::ResizeSwapChain(wxSize& size)
+{
+	m_renderSystem.ResizeSwapChain(size);
+}
+
+HRESULT CustomCaptionFrame::GetD2DDeviceContext(ID2D1DeviceContext1** ppContext)
+{
+	return m_renderSystem.GetD2DDeviceContext(ppContext);
+}
+
+HRESULT CustomCaptionFrame::GetD3DDeviceContext(ID3D11DeviceContext** ppContext)
+{
+	return m_renderSystem.GetD3DDeviceContext(ppContext);
+}
+
+HRESULT CustomCaptionFrame::GetD3DDevice(ID3D11Device** ppDevice)
+{
+	return m_renderSystem.GetD3DDevice(ppDevice);
+}
+
 WXLRESULT CustomCaptionFrame::OnNcCalcSize(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {
 	if(wParam == 0)
@@ -252,12 +297,15 @@ WXLRESULT CustomCaptionFrame::OnNcCalcSize(UINT nMsg, WPARAM wParam, LPARAM lPar
 	NCCALCSIZE_PARAMS* params = (NCCALCSIZE_PARAMS*)lParam;
 	RECT* requestedClientRect = params->rgrc;
 
-	requestedClientRect->right -= m_borderThickness.x + m_borderPadding;
-	requestedClientRect->left += m_borderThickness.x + m_borderPadding;
-	requestedClientRect->bottom -= m_borderThickness.y + m_borderPadding;
-	if (IsMaximized()) 
+	if(!IsFullScreen())
 	{
-		requestedClientRect->top += m_borderPadding;
+		requestedClientRect->right -= m_borderThickness.x + m_borderPadding;
+		requestedClientRect->left += m_borderThickness.x + m_borderPadding;
+		requestedClientRect->bottom -= m_borderThickness.y + m_borderPadding;
+		if (IsMaximized()) 
+		{
+			requestedClientRect->top += m_borderPadding;
+		}
 	}
 
 	return 0;
@@ -272,6 +320,11 @@ WXLRESULT CustomCaptionFrame::OnNcHitTest(UINT nMsg, WPARAM wParam, LPARAM lPara
 		|| (HTLEFT <= hitTestRet && hitTestRet <= HTBOTTOMRIGHT))
 	{
 		return hitTestRet;
+	}
+
+	if(IsFullScreen())
+	{
+		return HTCLIENT;
 	}
 
 	// Check if hover button is on maximize to support SnapLayout on Windows 11
@@ -307,13 +360,22 @@ WXLRESULT CustomCaptionFrame::OnNcLButtonDown(UINT nMsg, WPARAM wParam, LPARAM l
 // Ideally you also want to check that the mouse hasn't moved out or too much
 // between DOWN and UP messages.
 	if(m_currentHoveredButtonId != wxID_ANY)
+	{
+		m_buttonDownedId = m_currentHoveredButtonId;
 		return 0;
+	}
 
 	return wxFrame::MSWWindowProc(nMsg, wParam, lParam);
 }
 
 WXLRESULT CustomCaptionFrame::OnNcLButtonUp(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {
+	if(m_buttonDownedId != m_currentHoveredButtonId)
+	{
+		return wxFrame::MSWWindowProc(nMsg, wParam, lParam);
+	}
+
+	m_buttonDownedId = wxID_ANY;
 	switch(m_currentHoveredButtonId)
 	{
 	case wxID_MINIMIZE_BOX:
@@ -336,24 +398,7 @@ WXLRESULT CustomCaptionFrame::OnNcMouseMove(UINT nMsg, WPARAM wParam, LPARAM lPa
 {
 	wxPoint cursor = wxGetMousePosition();
 	ScreenToClient(&cursor.x, &cursor.y);
-	wxWindowID id = wxID_ANY;
-	if (m_titleBarButtonRects.minimize.GetX() <= cursor.x
-		&& m_titleBarButtonRects.minimize.GetBottom() >= cursor.y)
-	{
-		if (m_titleBarButtonRects.close.Contains(cursor))
-		{
-			id = wxID_CLOSE_BOX;
-		}
-		else if(m_titleBarButtonRects.minimize.Contains(cursor))
-		{
-			id = wxID_MINIMIZE_BOX;
-		}
-		else if(m_titleBarButtonRects.maximize.Contains(cursor))
-		{
-			id = wxID_MAXIMIZE_BOX;
-		}
-	}
-
+	wxWindowID id = GetMouseOveredButtonId(cursor);
 	if(m_currentHoveredButtonId != id)
 	{
 		TryRender();
@@ -409,4 +454,36 @@ void CustomCaptionFrame::UpdateCaptionDesc(int dpi)
 	
 	m_titleBarButtonRects.minimize = m_titleBarButtonRects.maximize;
 	m_titleBarButtonRects.minimize.Offset(-buttonWidth, 0);
+	CloseThemeData(theme);
+}
+
+wxWindowID CustomCaptionFrame::GetMouseOveredButtonId(const wxPoint& cursor) const
+{
+	wxWindowID id = wxID_ANY;
+	if (m_titleBarButtonRects.minimize.GetX() <= cursor.x
+		&& m_titleBarButtonRects.minimize.GetBottom() >= cursor.y)
+	{
+		if (m_titleBarButtonRects.close.Contains(cursor))
+		{
+			id = wxID_CLOSE_BOX;
+		}
+		else if(m_titleBarButtonRects.minimize.Contains(cursor))
+		{
+			id = wxID_MINIMIZE_BOX;
+		}
+		else if(m_titleBarButtonRects.maximize.Contains(cursor))
+		{
+			id = wxID_MAXIMIZE_BOX;
+		}
+	}
+
+	return id;
+}
+
+
+HRESULT CustomCaptionFrame::GetContainingOutput(IDXGIOutput** ppOutput)
+{
+	ComPtr<IDXGISwapChain1> swapChain;
+	m_renderSystem.GetSwapChain(&swapChain);
+	return swapChain->GetContainingOutput(ppOutput);
 }

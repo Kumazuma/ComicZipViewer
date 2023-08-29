@@ -27,17 +27,22 @@ public:
 			const wxString& name = wxASCII_STR(wxFrameNameStr));
 
 	WXLRESULT MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam) override;
+	
+	void Render();
+	void TryRender();
 
 protected:
 	void MSWUpdateFontOnDPIChange(const wxSize& newDPI) override;
 
-	void Render();
-	void TryRender();
 	void DeferredRender();
 	void RenderCaption();
 	virtual void DoRender() {}
 	virtual void DoThaw() override;
-
+	void ResizeSwapChain(wxSize& size);
+	HRESULT GetD2DDeviceContext(ID2D1DeviceContext1** ppContext);
+	HRESULT GetD3DDeviceContext(ID3D11DeviceContext** ppContext);
+	HRESULT GetD3DDevice(ID3D11Device** ppDevice);
+	HRESULT GetContainingOutput(IDXGIOutput** ppOutput);
 private:
 	WXLRESULT OnNcCalcSize(UINT nMsg, WPARAM wParam, LPARAM lParam);
 	WXLRESULT OnNcHitTest(UINT nMsg, WPARAM wParam, LPARAM lParam);
@@ -47,9 +52,11 @@ private:
 	WXLRESULT OnNcMouseLeave(UINT nMsg, WPARAM wParam, LPARAM lParam);
 	WXLRESULT OnNcMouseEnter(UINT nMsg, WPARAM wParam, LPARAM lParam);
 	void UpdateCaptionDesc(int dpi);
+	wxWindowID GetMouseOveredButtonId(const wxPoint& cursor) const;
 private:
 	D2DRenderSystem m_renderSystem;
 	wxWindowID m_currentHoveredButtonId;
+	wxWindowID m_buttonDownedId;
 	int m_borderPadding;
 	bool m_willRender;
 	wxSize m_borderThickness;
@@ -61,3 +68,5 @@ private:
 		wxRect minimize;
 	} m_titleBarButtonRects;
 };
+
+

@@ -20,15 +20,13 @@ View::~View()
 
 void View::Show()
 {
-	//auto& app = wxGetApp();
-	//m_pFrame = new ComicZipViewerFrame();
-	//if(!m_pFrame->Create(this))
-	//	return;
+	auto& app = wxGetApp();
+	m_pFrame = new ComicZipViewerFrame();
+	if(!m_pFrame->Create(this))
+		return;
 
-	//m_pFrame->Show();
-	//m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
-	CustomCaptionFrame* pCap = new CustomCaptionFrame(nullptr, wxID_ANY, wxS("Test"));
-	pCap->Show();
+	m_pFrame->Show();
+	m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
 }
 
 void View::OnMenu(wxCommandEvent& evt)
