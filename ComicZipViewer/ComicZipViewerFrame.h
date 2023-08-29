@@ -8,6 +8,8 @@
 #include <dxgi1_3.h>
 #include <optional>
 
+#include "ToastSystem.h"
+
 struct Rect : public D2D1_RECT_F
 {
 	float GetWidth() const { return right - left; }
@@ -49,13 +51,15 @@ public:
 	void SetImageViewMode(ImageViewModeKind mode);
 	void SetPageIsMarked(bool);
 	void SetRecentFiles(std::vector<std::tuple<wxString, wxString>>&& list);
+	void TryRender();
+	void Render();
+	void ShowToast(const wxString& text, bool preventSameToast);
 protected:
 	void DoThaw() override;
 	void OnSize(wxSizeEvent& evt);
 	void OnKeyDown(wxKeyEvent& evt);
 	void OnKeyUp(wxKeyEvent& evt);
 	void ResizeSwapChain(const wxSize clientRect);
-	void Render();
 	void Fullscreen();
 	void RestoreFullscreen();
 	void OnShowControlPanel(wxCommandEvent& event);
@@ -67,7 +71,6 @@ protected:
 	void OnShown(wxShowEvent& evt);
 	void OnDpiChanged(wxDPIChangedEvent& event);
 	void UpdateClientSize(const wxSize& sz);
-	void TryRender();
 	void GenerateIconBitmaps();
 	void OnContextMenu(wxContextMenuEvent& evt);
 	void UpdateScaledImageSize();
@@ -134,6 +137,7 @@ private:
 	D2D1_POINT_2F m_center;
 	std::vector<wxString> m_recentFileList;
 	float m_scale;
+	ToastSystem m_toastSystem;
 };
 
 wxDECLARE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);

@@ -125,6 +125,7 @@
       <PrecompiledHeaderFile>framework.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -146,6 +147,7 @@
       <PrecompiledHeaderFile>framework.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -161,6 +163,7 @@
     <ClInclude Include="BookmarksDialog.h" />
     <ClInclude Include="ComicZipViewer.h" />
     <ClInclude Include="ComicZipViewerFrame.h" />
+    <ClInclude Include="Event.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="IAllocator.h" />
     <ClInclude Include="IBuffer.h" />
@@ -171,6 +174,8 @@
     <ClInclude Include="RadioButtonGroup.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="SimpleBuffer.h" />
+    <ClInclude Include="tick.h" />
+    <ClInclude Include="ToastSystem.h" />
     <ClInclude Include="View.h" />
     <ClInclude Include="VisualWidget.h" />
   </ItemGroup>
@@ -178,6 +183,7 @@
     <ClCompile Include="BookmarksDialog.cpp" />
     <ClCompile Include="ComicZipViewer.cpp" />
     <ClCompile Include="ComicZipViewerFrame.cpp" />
+    <ClCompile Include="Event.cpp" />
     <ClCompile Include="IAllocator.cpp" />
     <ClCompile Include="IBuffer.cpp" />
     <ClCompile Include="Model.cpp" />
@@ -186,6 +192,7 @@
     <ClCompile Include="PageCollectionZip.cpp" />
     <ClCompile Include="RadioButtonGroup.cpp" />
     <ClCompile Include="SimpleBuffer.cpp" />
+    <ClCompile Include="ToastSystem.cpp" />
     <ClCompile Include="View.cpp" />
     <ClCompile Include="VisualWidget.cpp" />
   </ItemGroup>
@@ -193,6 +200,7 @@
     <ResourceCompile Include="ComicZipViewer.rc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".editorconfig" />
     <None Include="arrow-fit-width-svgrepo-com.svg" />
     <None Include="arrow-next-svgrepo-com.svg" />
     <None Include="arrow-previous-svgrepo-com.svg" />
