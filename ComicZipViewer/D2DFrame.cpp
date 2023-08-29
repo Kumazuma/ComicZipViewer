@@ -164,6 +164,7 @@ HRESULT D2DFrame::ResizeSwapChain(const wxSize& size)
 		&m_targetBitmap);
 
 	m_d2dContext->SetTarget(m_targetBitmap.Get());
+	return S_OK;
 }
 
 HRESULT D2DFrame::GetSolidColorBrush(const D2D1::ColorF& color, ID2D1SolidColorBrush** ppBrush)

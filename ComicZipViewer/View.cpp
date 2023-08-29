@@ -4,8 +4,9 @@
 #include "ComicZipViewer.h"
 #include "ComicZipViewerFrame.h"
 #include "BookmarksDialog.h"
+#include "CustomCaptionFrame.h"
 
-wxDEFINE_EVENT(wxEVT_OPEN_BOOKMARK, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_OPEN_BOOKMARK , wxCommandEvent);
 
 View::View()
 	: m_pFrame(nullptr)
@@ -19,13 +20,15 @@ View::~View()
 
 void View::Show()
 {
-	auto& app = wxGetApp();
-	m_pFrame = new ComicZipViewerFrame();
-	if(!m_pFrame->Create(this))
-		return;
+	//auto& app = wxGetApp();
+	//m_pFrame = new ComicZipViewerFrame();
+	//if(!m_pFrame->Create(this))
+	//	return;
 
-	m_pFrame->Show();
-	m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
+	//m_pFrame->Show();
+	//m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
+	CustomCaptionFrame* pCap = new CustomCaptionFrame(nullptr, wxID_ANY, wxS("Test"));
+	pCap->Show();
 }
 
 void View::OnMenu(wxCommandEvent& evt)

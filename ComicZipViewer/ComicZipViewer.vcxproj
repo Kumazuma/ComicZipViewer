@@ -165,6 +165,7 @@
     <ClInclude Include="ComicZipViewerFrame.h" />
     <ClInclude Include="CustomCaptionFrame.h" />
     <ClInclude Include="D2DFrame.h" />
+    <ClInclude Include="D2DRenderSystem.h" />
     <ClInclude Include="Event.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="IAllocator.h" />
@@ -188,6 +189,7 @@
     <ClCompile Include="ComicZipViewerFrame.cpp" />
     <ClCompile Include="CustomCaptionFrame.cpp" />
     <ClCompile Include="D2DFrame.cpp" />
+    <ClCompile Include="D2DRenderSystem.cpp" />
     <ClCompile Include="Event.cpp" />
     <ClCompile Include="IAllocator.cpp" />
     <ClCompile Include="IBuffer.cpp" />
