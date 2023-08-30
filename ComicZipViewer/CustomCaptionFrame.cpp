@@ -241,10 +241,26 @@ void CustomCaptionFrame::RenderCaption()
 		rc .top -= MAXIMIZED_RECTANGLE_OFFSET;
 		rc .right += MAXIMIZED_RECTANGLE_OFFSET;
 		rc .bottom -= MAXIMIZED_RECTANGLE_OFFSET;
-		context->DrawRectangle(rc, buttonColorBrush.Get(), 2.f);
-	}
+		context->DrawRectangle(rc, buttonColorBrush.Get(), 1.5f);
 
-	context->DrawRectangle(icon_rect, buttonColorBrush.Get(), 2.f);
+		rc = icon_rect;
+		rc.left -= MAXIMIZED_RECTANGLE_OFFSET;
+		rc.top += MAXIMIZED_RECTANGLE_OFFSET;
+		rc.right -= MAXIMIZED_RECTANGLE_OFFSET;
+		rc.bottom += MAXIMIZED_RECTANGLE_OFFSET;
+		ID2D1SolidColorBrush* bgColorBrush = lightGrayBrush.Get();
+		if( m_currentHoveredButtonId == wxID_MAXIMIZE_BOX )
+		{
+			bgColorBrush = hoveredColorBrush.Get();
+		}
+
+		context->FillRectangle(rc , bgColorBrush);
+		context->DrawRectangle(rc , buttonColorBrush.Get() , 1.5f);
+	}
+	else
+	{
+		context->DrawRectangle(icon_rect , buttonColorBrush.Get() , 2.f);
+	}
 	
 	icon_rect.top = 0.f;
 	icon_rect.left = 0.f;
@@ -289,7 +305,7 @@ HRESULT CustomCaptionFrame::GetD3DDevice(ID3D11Device** ppDevice)
 
 WXLRESULT CustomCaptionFrame::OnNcCalcSize(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {
-	if(wParam == 0)
+	if(!wParam)
 	{
 		return wxFrame::MSWWindowProc(nMsg , wParam , lParam);
 	}
@@ -313,13 +329,13 @@ WXLRESULT CustomCaptionFrame::OnNcCalcSize(UINT nMsg, WPARAM wParam, LPARAM lPar
 
 WXLRESULT CustomCaptionFrame::OnNcHitTest(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {
-	WXLRESULT hitTestRet = MSWDefWindowProc(nMsg, wParam, lParam);
+	WXLRESULT hitTestRet = wxFrame::MSWWindowProc(nMsg, wParam, lParam);
 	// 10 11 12 13 14 15 16 17
 	if(hitTestRet == HTNOWHERE
 		// HTLEFT HTRIGHT HTTOP HTTBOTTOM HTTOPLEFT HTTOPRIGHT HTBOTTOMLEFT HTBOTTOMRIGHT
 		|| (HTLEFT <= hitTestRet && hitTestRet <= HTBOTTOMRIGHT))
 	{
-		return hitTestRet;
+			return hitTestRet;
 	}
 
 	if(IsFullScreen())
@@ -332,23 +348,31 @@ WXLRESULT CustomCaptionFrame::OnNcHitTest(UINT nMsg, WPARAM wParam, LPARAM lPara
 	{
 		return HTMAXBUTTON;
 	}
+	else if(m_currentHoveredButtonId == wxID_CLOSE_BOX)
+	{
+		return HTCLOSE;
+	}
+	else if(m_currentHoveredButtonId == wxID_MINIMIZE_BOX)
+	{
+		return HTMINBUTTON;
+	}
 
 	// Looks like adjustment happening in NCCALCSIZE is messing with the detection
 	// of the top hit area so manually fixing that.
-	wxPoint cursor_point(LOWORD(lParam), HIWORD(lParam));
-	cursor_point = ScreenToClient(cursor_point);
-	if (cursor_point.y > 0
-		&& cursor_point.y < m_borderThickness.y + m_borderPadding)
+	wxPoint cursorPoint(LOWORD(lParam), HIWORD(lParam));
+	cursorPoint = ScreenToClient(cursorPoint);
+	if (cursorPoint.y > 0
+		&& cursorPoint.y < m_borderThickness.y + m_borderPadding)
 	{
 		return HTTOP;
 	}
 
 	// Since we are drawing our own caption, this needs to be a custom test
-	if (cursor_point.y < m_titleBarRect.GetBottom())
+	if ( cursorPoint.y < m_titleBarRect.GetBottom() )
 	{
 		return HTCAPTION;
 	}
-	
+
 	return HTCLIENT;
 }
 
@@ -454,7 +478,6 @@ void CustomCaptionFrame::UpdateCaptionDesc(int dpi)
 	
 	m_titleBarButtonRects.minimize = m_titleBarButtonRects.maximize;
 	m_titleBarButtonRects.minimize.Offset(-buttonWidth, 0);
-	CloseThemeData(theme);
 }
 
 wxWindowID CustomCaptionFrame::GetMouseOveredButtonId(const wxPoint& cursor) const

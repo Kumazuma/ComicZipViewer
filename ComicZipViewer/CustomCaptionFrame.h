@@ -4,7 +4,7 @@
 class CustomCaptionFrame: public wxFrame
 {
 	static constexpr int FAKE_SHADOW_HEIGHT = 1;
-	static constexpr int MAXIMIZED_RECTANGLE_OFFSET = 3;
+	static constexpr float MAXIMIZED_RECTANGLE_OFFSET = 1.5f;
 	static constexpr wxWindowID wxID_MINIMIZE_BOX = wxID_HIGHEST + 1;
 	static constexpr wxWindowID wxID_MAXIMIZE_BOX = wxID_MINIMIZE_BOX + 1;
 	static constexpr wxWindowID wxID_CLOSE_BOX = wxID_MAXIMIZE_BOX + 1;
@@ -53,6 +53,7 @@ private:
 	WXLRESULT OnNcMouseEnter(UINT nMsg, WPARAM wParam, LPARAM lParam);
 	void UpdateCaptionDesc(int dpi);
 	wxWindowID GetMouseOveredButtonId(const wxPoint& cursor) const;
+	void ShowFadeInCaption();
 private:
 	D2DRenderSystem m_renderSystem;
 	wxWindowID m_currentHoveredButtonId;
@@ -68,5 +69,3 @@ private:
 		wxRect minimize;
 	} m_titleBarButtonRects;
 };
-
-
