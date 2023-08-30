@@ -1,5 +1,6 @@
 #pragma once
 #include "D2DRenderSystem.h"
+#include <dwrite_3.h>
 
 class CustomCaptionFrame: public wxFrame
 {
@@ -53,7 +54,8 @@ private:
 	WXLRESULT OnNcMouseEnter(UINT nMsg, WPARAM wParam, LPARAM lParam);
 	void UpdateCaptionDesc(int dpi);
 	wxWindowID GetMouseOveredButtonId(const wxPoint& cursor) const;
-	void ShowFadeInCaption();
+	void ShowWithFadeInCaption();
+	void HideWithFadeOutCaption();
 private:
 	D2DRenderSystem m_renderSystem;
 	wxWindowID m_currentHoveredButtonId;
@@ -68,4 +70,9 @@ private:
 		wxRect maximize;
 		wxRect minimize;
 	} m_titleBarButtonRects;
+	uint32_t m_captionOpacity;
+	float m_titleTextSize;
+	bool m_shownCaption;
+	ComPtr<IDWriteTextFormat> m_dwTextFormat;
+	ComPtr<IDWriteFactory> m_dwFactory;
 };

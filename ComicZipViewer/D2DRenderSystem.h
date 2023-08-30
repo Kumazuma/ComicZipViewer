@@ -28,4 +28,3 @@ private:
 	ComPtr<ID2D1Factory2> m_d2dFactory;
 	std::unordered_map<UINT , ComPtr<ID2D1SolidColorBrush>> m_solidBrushCacheTable;
 };
-

@@ -128,9 +128,6 @@
     <ClCompile Include="Event.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="D2DFrame.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
     <ClCompile Include="CustomCaptionFrame.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -186,4 +183,5 @@
     </FxCompile>
   </ItemGroup>
 </Project>
+
 

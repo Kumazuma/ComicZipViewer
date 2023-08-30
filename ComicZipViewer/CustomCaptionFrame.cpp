@@ -2,6 +2,8 @@
 #include "CustomCaptionFrame.h"
 #include <uxtheme.h>
 #include <Vsstyle.h>
+#include <vssym32.h>
+#include "tick.h"
 
 inline static int GetScaleUsingDpi(int value, int dpi)
 {
@@ -14,6 +16,8 @@ CustomCaptionFrame::CustomCaptionFrame()
 , m_borderThickness()
 , m_willRender()
 , m_buttonDownedId(wxID_ANY)
+, m_captionOpacity(0.f)
+, m_shownCaption()
 {
 }
 
@@ -33,6 +37,9 @@ bool CustomCaptionFrame::Create(wxWindow* parent, wxWindowID id, const wxString&
 	}
 
 	int dpi = GetDPI().x;
+
+
+	DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED , __uuidof( m_dwFactory ) , &m_dwFactory);
 	UpdateCaptionDesc(dpi);
 	m_renderSystem.Initalize(this, GetClientSize());
 
@@ -43,7 +50,6 @@ bool CustomCaptionFrame::Create(wxWindow* parent, wxWindowID id, const wxString&
 		rect.GetWidth(), rect.GetHeight(),
 		SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOSENDCHANGING
 	);
-
 	return true;
 }
 
@@ -52,14 +58,14 @@ WXLRESULT CustomCaptionFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPAR
 	switch(nMsg)
 	{
 	case WM_SIZE:
-		UpdateCaptionDesc(GetDPI().x);
+		UpdateCaptionDesc(::GetDpiForWindow(GetHWND()));
 	{
 		RECT rect;
 		::GetClientRect(GetHWND(), &rect);
 		m_renderSystem.ResizeSwapChain(wxSize{rect.right - rect.left, rect.bottom - rect.top});
-		TryRender();
+		Render();
 	}
-		
+
 		break;
 
 	case WM_NCPAINT:
@@ -77,6 +83,7 @@ WXLRESULT CustomCaptionFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPAR
 	case WM_NCLBUTTONUP:
 		return OnNcLButtonUp(nMsg, wParam, lParam);
 
+	case WM_MOUSEMOVE:
 	case WM_NCMOUSEMOVE:
 		return OnNcMouseMove(nMsg, wParam, lParam);
 
@@ -85,6 +92,15 @@ WXLRESULT CustomCaptionFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPAR
 
 	case WM_NCMOUSEHOVER:
 		return OnNcMouseEnter(nMsg, wParam, lParam);
+
+	case WM_DPICHANGED:
+		UpdateCaptionDesc(::GetDpiForWindow(GetHWND()));
+		Render();
+		break;
+
+	case WM_SETTEXT:
+		TryRender();
+		break;
 	}
 
 	return wxFrame::MSWWindowProc(nMsg , wParam , lParam);
@@ -95,6 +111,16 @@ void CustomCaptionFrame::MSWUpdateFontOnDPIChange(const wxSize& newDPI)
 	wxFrame::MSWUpdateFontOnDPIChange(newDPI);
 	UpdateCaptionDesc(newDPI.x);
 	TryRender();
+}
+
+inline D2D1_RECT_F GetRect(wxRect& rc)
+{
+	return D2D1::RectF(
+		( float ) rc.GetLeft() ,
+		( float ) rc.GetTop() ,
+		( float ) rc.GetRight() ,
+		( float ) rc.GetBottom()
+	);
 }
 
 void CustomCaptionFrame::Render()
@@ -111,9 +137,15 @@ void CustomCaptionFrame::Render()
 	d2dContext->BeginDraw();
 	d2dContext->Clear(D2D1::ColorF(0.3f, 0.3f, 0.3f, 1.f));
 	DoRender();
-	if(!IsFullScreen())
+	if( m_captionOpacity != 0)
 	{
+		auto parameter = D2D1::LayerParameters(::GetRect(m_titleBarRect));
+		parameter.contentBounds.right += 1.f;
+		parameter.contentBounds.bottom += 1.f;
+		parameter.opacity = m_captionOpacity * ( 1.f / 4096.f );
+		d2dContext->PushLayer(parameter , nullptr);
 		RenderCaption();
+		d2dContext->PopLayer();
 	}
 	
 	d2dContext->EndDraw();
@@ -158,22 +190,13 @@ void win32_center_rect_in_rect(
   to_center->bottom = to_center->top + to_height;
 }
 
-inline D2D1_RECT_F GetRect(wxRect& rc)
-{
-	return D2D1::RectF(
-		(float)rc.GetLeft(),
-		(float)rc.GetTop(),
-		(float)rc.GetRight(),
-		(float)rc.GetBottom()
-	);
-}
-
 void CustomCaptionFrame::RenderCaption()
 {
 	ComPtr<ID2D1SolidColorBrush> lightGrayBrush;
 	ComPtr<ID2D1SolidColorBrush> hoveredColorBrush;
 	ComPtr<ID2D1SolidColorBrush> buttonColorBrush;
 	ComPtr<ID2D1SolidColorBrush> whiteColorBrush;
+	ComPtr<ID2D1SolidColorBrush> blackColorBrush;
 	ComPtr<ID2D1DeviceContext1> context;
 	D2D1::ColorF buttonColor(127.f / 255.f, 127.f / 255.f, 127.f / 255.f, 1.f);
 	if(HasFocus())
@@ -185,6 +208,7 @@ void CustomCaptionFrame::RenderCaption()
 	m_renderSystem.GetSolidColorBrush(buttonColor, &buttonColorBrush);
 	m_renderSystem.GetSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &whiteColorBrush);
 	m_renderSystem.GetSolidColorBrush(D2D1::ColorF(D2D1::ColorF::LightGray), &lightGrayBrush);
+	m_renderSystem.GetSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black), &blackColorBrush);
 	m_renderSystem.GetD2DDeviceContext(&context);
 	// Paint Title Bar
 	const int dpi = GetDPI().x;
@@ -206,10 +230,10 @@ void CustomCaptionFrame::RenderCaption()
 	}
 
 	context->FillRectangle(D2D1::RectF(
-		m_titleBarButtonRects.minimize.GetLeft(),
-		m_titleBarButtonRects.minimize.GetTop(),
-		m_titleBarButtonRects.close.GetRight() + 1.f,
-		m_titleBarButtonRects.close.GetBottom()
+		m_titleBarRect.GetLeft(),
+		m_titleBarRect.GetTop(),
+		m_titleBarRect.GetRight() + 1.f,
+		m_titleBarRect.GetBottom() + 1.f
 	), lightGrayBrush.Get());
 	if(rc != nullptr)
 	{
@@ -223,43 +247,54 @@ void CustomCaptionFrame::RenderCaption()
 		context->FillRectangle(rcf, hoveredColorBrush.Get());
 	}
 
+	auto title = GetTitle();
+	auto titleArea = ::GetRect(m_titleBarRect);
+	titleArea.left += ( titleArea.bottom - titleArea.top );
+	const float areaCenter = ( titleArea.bottom + titleArea.top ) * 0.5f;
+	titleArea.top = areaCenter - m_titleTextSize * 0.5f - 1.f;
+	titleArea.bottom = areaCenter + m_titleTextSize * 0.5f - 1.f;
+	context->DrawText(title.wx_str() , title.Length() , m_dwTextFormat.Get() , titleArea , blackColorBrush.Get());
+
 	D2D1_RECT_F icon_rect{ };
-	icon_rect.right = icon_dimension;
-	icon_rect.bottom = 2.f;
-	win32_center_rect_in_rect(&icon_rect, ::GetRect(m_titleBarButtonRects.minimize));
-	context->FillRectangle(icon_rect, buttonColorBrush.Get());
-
-	icon_rect.top = 0.f;
-	icon_rect.left = 0.f;
-	icon_rect.right = icon_dimension;
-	icon_rect.bottom = icon_dimension;
-	win32_center_rect_in_rect(&icon_rect, ::GetRect(m_titleBarButtonRects.maximize));
-	if(IsMaximized())
+	if(!IsFullScreen())
 	{
-		auto rc = icon_rect;
-		rc .left += MAXIMIZED_RECTANGLE_OFFSET;
-		rc .top -= MAXIMIZED_RECTANGLE_OFFSET;
-		rc .right += MAXIMIZED_RECTANGLE_OFFSET;
-		rc .bottom -= MAXIMIZED_RECTANGLE_OFFSET;
-		context->DrawRectangle(rc, buttonColorBrush.Get(), 1.5f);
+		icon_rect.right = icon_dimension;
+		icon_rect.bottom = 2.f;
+		win32_center_rect_in_rect(&icon_rect , ::GetRect(m_titleBarButtonRects.minimize));
+		context->FillRectangle(icon_rect , buttonColorBrush.Get());
 
-		rc = icon_rect;
-		rc.left -= MAXIMIZED_RECTANGLE_OFFSET;
-		rc.top += MAXIMIZED_RECTANGLE_OFFSET;
-		rc.right -= MAXIMIZED_RECTANGLE_OFFSET;
-		rc.bottom += MAXIMIZED_RECTANGLE_OFFSET;
-		ID2D1SolidColorBrush* bgColorBrush = lightGrayBrush.Get();
-		if( m_currentHoveredButtonId == wxID_MAXIMIZE_BOX )
+		icon_rect.top = 0.f;
+		icon_rect.left = 0.f;
+		icon_rect.right = icon_dimension;
+		icon_rect.bottom = icon_dimension;
+		win32_center_rect_in_rect(&icon_rect , ::GetRect(m_titleBarButtonRects.maximize));
+		if ( IsMaximized() )
 		{
-			bgColorBrush = hoveredColorBrush.Get();
-		}
+			auto rc = icon_rect;
+			rc.left += MAXIMIZED_RECTANGLE_OFFSET;
+			rc.top -= MAXIMIZED_RECTANGLE_OFFSET;
+			rc.right += MAXIMIZED_RECTANGLE_OFFSET;
+			rc.bottom -= MAXIMIZED_RECTANGLE_OFFSET;
+			context->DrawRectangle(rc , buttonColorBrush.Get() , 1.5f);
 
-		context->FillRectangle(rc , bgColorBrush);
-		context->DrawRectangle(rc , buttonColorBrush.Get() , 1.5f);
-	}
-	else
-	{
-		context->DrawRectangle(icon_rect , buttonColorBrush.Get() , 2.f);
+			rc = icon_rect;
+			rc.left -= MAXIMIZED_RECTANGLE_OFFSET;
+			rc.top += MAXIMIZED_RECTANGLE_OFFSET;
+			rc.right -= MAXIMIZED_RECTANGLE_OFFSET;
+			rc.bottom += MAXIMIZED_RECTANGLE_OFFSET;
+			ID2D1SolidColorBrush* bgColorBrush = lightGrayBrush.Get();
+			if ( m_currentHoveredButtonId == wxID_MAXIMIZE_BOX )
+			{
+				bgColorBrush = hoveredColorBrush.Get();
+			}
+
+			context->FillRectangle(rc , bgColorBrush);
+			context->DrawRectangle(rc , buttonColorBrush.Get() , 1.5f);
+		}
+		else
+		{
+			context->DrawRectangle(icon_rect , buttonColorBrush.Get() , 2.f);
+		}
 	}
 	
 	icon_rect.top = 0.f;
@@ -273,8 +308,8 @@ void CustomCaptionFrame::RenderCaption()
 		pBrush = whiteColorBrush.Get();
 	}
 
-	context->DrawLine(D2D1::Point2F(icon_rect.left, icon_rect.top), D2D1::Point2F(icon_rect.right + 1.f, icon_rect.bottom + 1), pBrush, 2.f);
-	context->DrawLine(D2D1::Point2F(icon_rect.left, icon_rect.bottom), D2D1::Point2F(icon_rect.right + 1.f, icon_rect.top - 1), pBrush, 2.f);
+	context->DrawLine(D2D1::Point2F(icon_rect.left, icon_rect.top), D2D1::Point2F(icon_rect.right, icon_rect.bottom), pBrush, 2.f);
+	context->DrawLine(D2D1::Point2F(icon_rect.left, icon_rect.bottom), D2D1::Point2F(icon_rect.right, icon_rect.top), pBrush, 2.f);
 }
 
 void CustomCaptionFrame::DoThaw()
@@ -338,23 +373,25 @@ WXLRESULT CustomCaptionFrame::OnNcHitTest(UINT nMsg, WPARAM wParam, LPARAM lPara
 			return hitTestRet;
 	}
 
-	if(IsFullScreen())
+	const bool isFullScreen = IsFullScreen();
+
+	if ( !isFullScreen )
 	{
-		return HTCLIENT;
+		// Check if hover button is on maximize to support SnapLayout on Windows 11
+		if ( m_currentHoveredButtonId == wxID_MAXIMIZE_BOX )
+		{
+			return HTMAXBUTTON;
+		}
+
+		if ( m_currentHoveredButtonId == wxID_MINIMIZE_BOX )
+		{
+			return HTMINBUTTON;
+		}
 	}
 
-	// Check if hover button is on maximize to support SnapLayout on Windows 11
-	if(m_currentHoveredButtonId == wxID_MAXIMIZE_BOX)
-	{
-		return HTMAXBUTTON;
-	}
-	else if(m_currentHoveredButtonId == wxID_CLOSE_BOX)
+	if(m_currentHoveredButtonId == wxID_CLOSE_BOX)
 	{
 		return HTCLOSE;
-	}
-	else if(m_currentHoveredButtonId == wxID_MINIMIZE_BOX)
-	{
-		return HTMINBUTTON;
 	}
 
 	// Looks like adjustment happening in NCCALCSIZE is messing with the detection
@@ -370,7 +407,21 @@ WXLRESULT CustomCaptionFrame::OnNcHitTest(UINT nMsg, WPARAM wParam, LPARAM lPara
 	// Since we are drawing our own caption, this needs to be a custom test
 	if ( cursorPoint.y < m_titleBarRect.GetBottom() )
 	{
-		return HTCAPTION;
+		if ( !m_shownCaption )
+		{
+			m_shownCaption = true;
+			CallAfter(&CustomCaptionFrame::ShowWithFadeInCaption);
+		}
+
+		if( !isFullScreen )
+		{
+			return HTCAPTION;
+		}
+	}
+	else if ( m_shownCaption )
+	{
+		m_shownCaption = false;
+		CallAfter(&CustomCaptionFrame::HideWithFadeOutCaption);
 	}
 
 	return HTCLIENT;
@@ -429,6 +480,19 @@ WXLRESULT CustomCaptionFrame::OnNcMouseMove(UINT nMsg, WPARAM wParam, LPARAM lPa
 	}
 
 	m_currentHoveredButtonId = id;
+	if ( cursor.y <= m_titleBarRect.GetBottom() )
+	{
+		if( !m_shownCaption )
+		{
+			m_shownCaption = true;
+			CallAfter(&CustomCaptionFrame::ShowWithFadeInCaption);
+		}
+	}
+	else if( m_shownCaption )
+	{
+		m_shownCaption = false;
+		CallAfter(&CustomCaptionFrame::HideWithFadeOutCaption);
+	}
 
 	return wxFrame::MSWWindowProc(nMsg, wParam, lParam);
 
@@ -448,16 +512,25 @@ void CustomCaptionFrame::UpdateCaptionDesc(int dpi)
 {
 	m_borderThickness.x = GetSystemMetricsForDpi(SM_CXFRAME, dpi);
 	m_borderThickness.y = GetSystemMetricsForDpi(SM_CYFRAME, dpi);
-	m_borderPadding = GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+	m_borderPadding = GetSystemMetricsForDpi(SM_CXPADDEDBORDER, 96);
 
 	SIZE title_bar_size = {0};
+	LOGFONTW fontDesc;
 	constexpr int topAndBottomBorder = 2;
 	HTHEME theme = OpenThemeData(GetHWND(), L"WINDOW");
 	GetThemePartSize(theme, nullptr, WP_CAPTION, CS_ACTIVE, nullptr, TS_TRUE, &title_bar_size);
+	GetThemeSysFont(theme , TMT_CAPTIONFONT , &fontDesc);
 	CloseThemeData(theme);
 
-	const int height = GetScaleUsingDpi(title_bar_size.cy, dpi) / 16 + topAndBottomBorder;
+	const int height = GetScaleUsingDpi(title_bar_size.cy , dpi) / 16 + topAndBottomBorder;
+	m_titleTextSize = GetScaleUsingDpi(fontDesc.lfHeight , dpi) * ( 1.f / 16.f );
+	if(fontDesc.lfHeight < 0)
+	{
+		m_titleTextSize = GetScaleUsingDpi(-fontDesc.lfHeight , dpi) * ( 1.f / 16.f );
+	}
 
+	m_dwFactory->CreateTextFormat(fontDesc.lfFaceName , nullptr , ( DWRITE_FONT_WEIGHT ) fontDesc.lfWeight , DWRITE_FONT_STYLE_NORMAL , DWRITE_FONT_STRETCH_NORMAL , m_titleTextSize, L"ko-KR" , &m_dwTextFormat);
+	
 	RECT rect;
 	::GetClientRect(GetHWND(), &rect);
 	rect.bottom = rect.top + height;
@@ -473,11 +546,14 @@ void CustomCaptionFrame::UpdateCaptionDesc(int dpi)
 	m_titleBarButtonRects.close.SetLeft(m_titleBarButtonRects.close.GetRight() - buttonWidth);
 	m_titleBarButtonRects.close.SetWidth(buttonWidth);
 
-	m_titleBarButtonRects.maximize = m_titleBarButtonRects.close;
-	m_titleBarButtonRects.maximize.Offset(-buttonWidth, 0);
-	
-	m_titleBarButtonRects.minimize = m_titleBarButtonRects.maximize;
-	m_titleBarButtonRects.minimize.Offset(-buttonWidth, 0);
+	if(!IsFullScreen() )
+	{
+		m_titleBarButtonRects.maximize = m_titleBarButtonRects.close;
+		m_titleBarButtonRects.maximize.Offset(-buttonWidth , 0);
+
+		m_titleBarButtonRects.minimize = m_titleBarButtonRects.maximize;
+		m_titleBarButtonRects.minimize.Offset(-buttonWidth , 0);
+	}
 }
 
 wxWindowID CustomCaptionFrame::GetMouseOveredButtonId(const wxPoint& cursor) const
@@ -490,19 +566,68 @@ wxWindowID CustomCaptionFrame::GetMouseOveredButtonId(const wxPoint& cursor) con
 		{
 			id = wxID_CLOSE_BOX;
 		}
-		else if(m_titleBarButtonRects.minimize.Contains(cursor))
+		else if( !IsFullScreen() )
 		{
-			id = wxID_MINIMIZE_BOX;
-		}
-		else if(m_titleBarButtonRects.maximize.Contains(cursor))
-		{
-			id = wxID_MAXIMIZE_BOX;
+			if ( m_titleBarButtonRects.minimize.Contains(cursor) )
+			{
+				id = wxID_MINIMIZE_BOX;
+			}
+			else if ( m_titleBarButtonRects.maximize.Contains(cursor) )
+			{
+				id = wxID_MAXIMIZE_BOX;
+			}
 		}
 	}
 
 	return id;
 }
 
+void CustomCaptionFrame::ShowWithFadeInCaption()
+{
+	const int64_t frequency = GetTickFrequency();
+	int64_t latestTick = GetTick();
+	while( m_shownCaption && !IsBeingDeleted() )
+	{
+		int64_t current = GetTick();
+		const int64_t diff = current - latestTick;
+		latestTick = current;
+		uint32_t delta = ( ( diff * 4096ll ) / frequency );
+		m_captionOpacity += delta * 20;
+		if ( m_captionOpacity >= 4096 )
+		{
+			m_captionOpacity = 4096;
+			Render();
+			break;
+		}
+
+		Render();
+		wxYieldIfNeeded();
+	}
+}
+
+void CustomCaptionFrame::HideWithFadeOutCaption()
+{
+	const int64_t frequency = GetTickFrequency();
+	int64_t latestTick = GetTick();
+	while ( !m_shownCaption && !IsBeingDeleted() )
+	{
+		int64_t current = GetTick();
+		const int64_t diff = current - latestTick;
+		latestTick = current;
+		uint32_t delta = ( ( diff * 4096ll ) / frequency );
+		if( m_captionOpacity < delta * 20 )
+		{
+			m_captionOpacity = 0;
+			Render();
+			break;
+		}
+
+		m_captionOpacity -= delta * 20;
+
+		Render();
+		wxYieldIfNeeded();
+	}
+}
 
 HRESULT CustomCaptionFrame::GetContainingOutput(IDXGIOutput** ppOutput)
 {

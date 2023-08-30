@@ -205,13 +205,13 @@ HRESULT D2DRenderSystem::ResizeSwapChain(const wxSize& size)
 HRESULT D2DRenderSystem::GetSolidColorBrush(const D2D1::ColorF& color, ID2D1SolidColorBrush** ppBrush)
 {
 	UINT key = 0;
-	key |= static_cast< int >( color.r * 255.f ) % 255;
+	key |= static_cast< int >( color.r * 255.f ) % 256;
 	key = key << 8;
-	key |= static_cast< int >( color.g * 255.f ) % 255;
+	key |= static_cast< int >( color.g * 255.f ) % 256;
 	key = key << 8;
-	key |= static_cast< int >( color.b * 255.f ) % 255;
+	key |= static_cast< int >( color.b * 255.f ) % 256;
 	key = key << 8;
-	key |= static_cast< int >( color.a * 255.f ) % 255;
+	key |= static_cast< int >( color.a * 255.f ) % 256;
 	key = key << 8;
 
 	auto it = m_solidBrushCacheTable.find(key);
