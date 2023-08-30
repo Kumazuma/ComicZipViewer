@@ -247,13 +247,20 @@ void CustomCaptionFrame::RenderCaption()
 		context->FillRectangle(rcf, hoveredColorBrush.Get());
 	}
 
+
+	float leftButtonsStart = IsFullScreen() ? m_titleBarButtonRects.close.GetLeft() : m_titleBarButtonRects.minimize.GetLeft();
+	context->PushLayer(D2D1::LayerParameters(D2D1::RectF(0.f, 0.f, leftButtonsStart, m_titleBarRect.GetBottom() + 1.f)), nullptr);
+
 	auto title = GetTitle();
 	auto titleArea = ::GetRect(m_titleBarRect);
 	titleArea.left += ( titleArea.bottom - titleArea.top );
 	const float areaCenter = ( titleArea.bottom + titleArea.top ) * 0.5f;
-	titleArea.top = areaCenter - m_titleTextSize * 0.5f - 1.f;
-	titleArea.bottom = areaCenter + m_titleTextSize * 0.5f - 1.f;
+	titleArea.top = areaCenter - m_titleTextSize * 0.5f;
+	titleArea.bottom = areaCenter + m_titleTextSize * 0.5f;
+	titleArea.right = std::numeric_limits<int16_t>::max();
 	context->DrawText(title.wx_str() , title.Length() , m_dwTextFormat.Get() , titleArea , blackColorBrush.Get());
+
+	context->PopLayer();
 
 	D2D1_RECT_F icon_rect{ };
 	if(!IsFullScreen())
@@ -526,7 +533,7 @@ void CustomCaptionFrame::UpdateCaptionDesc(int dpi)
 	m_titleTextSize = GetScaleUsingDpi(fontDesc.lfHeight , dpi) * ( 1.f / 16.f );
 	if(fontDesc.lfHeight < 0)
 	{
-		m_titleTextSize = GetScaleUsingDpi(-fontDesc.lfHeight , dpi) * ( 1.f / 16.f );
+		m_titleTextSize = -fontDesc.lfHeight;
 	}
 
 	m_dwFactory->CreateTextFormat(fontDesc.lfFaceName , nullptr , ( DWRITE_FONT_WEIGHT ) fontDesc.lfWeight , DWRITE_FONT_STYLE_NORMAL , DWRITE_FONT_STRETCH_NORMAL , m_titleTextSize, L"ko-KR" , &m_dwTextFormat);
@@ -545,15 +552,12 @@ void CustomCaptionFrame::UpdateCaptionDesc(int dpi)
 	m_titleBarButtonRects.close.SetTop(m_titleBarButtonRects.close.GetTop() + FAKE_SHADOW_HEIGHT);
 	m_titleBarButtonRects.close.SetLeft(m_titleBarButtonRects.close.GetRight() - buttonWidth);
 	m_titleBarButtonRects.close.SetWidth(buttonWidth);
+	
+	m_titleBarButtonRects.maximize = m_titleBarButtonRects.close;
+	m_titleBarButtonRects.maximize.Offset(-buttonWidth , 0);
 
-	if(!IsFullScreen() )
-	{
-		m_titleBarButtonRects.maximize = m_titleBarButtonRects.close;
-		m_titleBarButtonRects.maximize.Offset(-buttonWidth , 0);
-
-		m_titleBarButtonRects.minimize = m_titleBarButtonRects.maximize;
-		m_titleBarButtonRects.minimize.Offset(-buttonWidth , 0);
-	}
+	m_titleBarButtonRects.minimize = m_titleBarButtonRects.maximize;
+	m_titleBarButtonRects.minimize.Offset(-buttonWidth , 0);
 }
 
 wxWindowID CustomCaptionFrame::GetMouseOveredButtonId(const wxPoint& cursor) const
