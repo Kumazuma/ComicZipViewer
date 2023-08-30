@@ -10,6 +10,17 @@ inline static int GetScaleUsingDpi(int value, int dpi)
 	return ((value * 16) * ((dpi * 16) / 96)) / 16;
 }
 
+static constexpr const char SVG_ICON_FULLSCREEN_STR[] =
+R"(<?xml version="1.0" encoding="utf-8"?><!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+<svg fill="#000000" width="800px" height="800px" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="fullscreen"  enable-background="new 0 0 32 32" xml:space="preserve">
+  <path d="M9 23h14V9H9V23zM11 11h10v10H11V11z"/>
+  <polygon points="7,21 5,21 5,27 11,27 11,25 7,25 "/>
+  <polygon points="7,7 11,7 11,5 5,5 5,11 7,11 "/>
+  <polygon points="25,25 21,25 21,27 27,27 27,21 25,21 "/>
+  <polygon points="21,5 21,7 25,7 25,11 27,11 27,5 "/>
+</svg>)";
+
+
 CustomCaptionFrame::CustomCaptionFrame()
 : m_currentHoveredButtonId(wxID_ANY)
 , m_borderPadding()
