@@ -34,7 +34,7 @@ void View::OnMenu(wxCommandEvent& evt)
 	if(eventId == wxID_OPEN)
 	{
 		wxFileDialog dialog(m_pFrame, wxS("Select a file"));
-		dialog.SetWildcard(wxS("zip files(*.zip)|*.zip"));
+		dialog.SetWildcard(wxS("archive files(*.zip, *.cbz, *.tar, *.cbt)|*.zip;*.cbz;*.tar;*.cbt"));
 		if (dialog.ShowModal() == wxID_CANCEL)
 			return;
 
