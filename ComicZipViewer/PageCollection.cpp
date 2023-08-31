@@ -1,6 +1,7 @@
 #include "framework.h"
 #include "PageCollection.h"
 #include "PageCollectionZip.h"
+#include "PageCollectionCbt.h"
 #include <wx/filename.h>
 
 PageCollection* PageCollection::Create(const wxString& path)
@@ -26,9 +27,20 @@ PageCollection* PageCollection::Create(const wxString& path)
 
 			return collection ;
 		}
+		else if(ext.EndsWith(wxS("tar")) || ext.EndsWith(wxS("cbt")))
+		{
+			auto collection = new PageCollectionCbt(path);
+			if(collection->GetPageCount() == 0)
+			{
+				delete collection;
+				collection = nullptr;
+			}
+
+			return collection;
+		}
 		else
 		{
-			// TODO: Not implemented yet!
+			
 		}
 	}
 
