@@ -69,12 +69,12 @@ WXLRESULT CustomCaptionFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPAR
 	switch(nMsg)
 	{
 	case WM_SIZE:
-		UpdateCaptionDesc(::GetDpiForWindow(GetHWND()));
 	{
 		RECT rect;
+		UpdateCaptionDesc(::GetDpiForWindow(GetHWND()));
 		::GetClientRect(GetHWND(), &rect);
 		m_renderSystem.ResizeSwapChain(wxSize{rect.right - rect.left, rect.bottom - rect.top});
-		Render();
+		TryRender();
 	}
 
 		break;
@@ -106,7 +106,7 @@ WXLRESULT CustomCaptionFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPAR
 
 	case WM_DPICHANGED:
 		UpdateCaptionDesc(::GetDpiForWindow(GetHWND()));
-		Render();
+		TryRender();
 		break;
 
 	case WM_SETTEXT:
@@ -222,7 +222,7 @@ void CustomCaptionFrame::RenderCaption()
 	m_renderSystem.GetSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black), &blackColorBrush);
 	m_renderSystem.GetD2DDeviceContext(&context);
 	// Paint Title Bar
-	const int dpi = GetDPI().x;
+	const int dpi = ::GetDpiForWindow(GetHWND());
 	float icon_dimension = GetScaleUsingDpi(10, dpi) / 16.f;
 	wxRect* rc = nullptr;
 	switch(m_currentHoveredButtonId)
@@ -238,6 +238,9 @@ void CustomCaptionFrame::RenderCaption()
 	case wxID_CLOSE_BOX:
 		rc = &m_titleBarButtonRects.close;
 		break;
+
+	case wxID_FULLSCREEN_BOX:
+		rc = &m_titleBarButtonRects.fullScreen;
 	}
 
 	context->FillRectangle(D2D1::RectF(
@@ -258,8 +261,8 @@ void CustomCaptionFrame::RenderCaption()
 		context->FillRectangle(rcf, hoveredColorBrush.Get());
 	}
 
-
-	float leftButtonsStart = IsFullScreen() ? m_titleBarButtonRects.close.GetLeft() : m_titleBarButtonRects.minimize.GetLeft();
+	// Draw Text
+	float leftButtonsStart = m_titleBarButtonRects.fullScreen.GetLeft();
 	context->PushLayer(D2D1::LayerParameters(D2D1::RectF(0.f, 0.f, leftButtonsStart, m_titleBarRect.GetBottom() + 1.f)), nullptr);
 
 	auto title = GetTitle();
@@ -277,7 +280,7 @@ void CustomCaptionFrame::RenderCaption()
 	if(!IsFullScreen())
 	{
 		icon_rect.right = icon_dimension;
-		icon_rect.bottom = 2.f;
+		icon_rect.bottom = GetScaleUsingDpi(1 , dpi) / 16.f;
 		win32_center_rect_in_rect(&icon_rect , ::GetRect(m_titleBarButtonRects.minimize));
 		context->FillRectangle(icon_rect , buttonColorBrush.Get());
 
@@ -289,17 +292,17 @@ void CustomCaptionFrame::RenderCaption()
 		if ( IsMaximized() )
 		{
 			auto rc = icon_rect;
-			rc.left += MAXIMIZED_RECTANGLE_OFFSET;
-			rc.top -= MAXIMIZED_RECTANGLE_OFFSET;
-			rc.right += MAXIMIZED_RECTANGLE_OFFSET;
-			rc.bottom -= MAXIMIZED_RECTANGLE_OFFSET;
-			context->DrawRectangle(rc , buttonColorBrush.Get() , 1.5f);
+			rc.left += GetScaleUsingDpi(MAXIMIZED_RECTANGLE_OFFSET , dpi) / 16.f;
+			rc.top -= GetScaleUsingDpi(MAXIMIZED_RECTANGLE_OFFSET , dpi) / 16.f;
+			rc.right += GetScaleUsingDpi(MAXIMIZED_RECTANGLE_OFFSET , dpi) / 16.f;
+			rc.bottom -= GetScaleUsingDpi(MAXIMIZED_RECTANGLE_OFFSET , dpi) / 16.f;
+			context->DrawRectangle(rc , buttonColorBrush.Get() , GetScaleUsingDpi(1 , dpi) / 16.f);
 
 			rc = icon_rect;
-			rc.left -= MAXIMIZED_RECTANGLE_OFFSET;
-			rc.top += MAXIMIZED_RECTANGLE_OFFSET;
-			rc.right -= MAXIMIZED_RECTANGLE_OFFSET;
-			rc.bottom += MAXIMIZED_RECTANGLE_OFFSET;
+			rc.left -= GetScaleUsingDpi(MAXIMIZED_RECTANGLE_OFFSET , dpi) / 16.f;
+			rc.top += GetScaleUsingDpi(MAXIMIZED_RECTANGLE_OFFSET , dpi) / 16.f;
+			rc.right -= GetScaleUsingDpi(MAXIMIZED_RECTANGLE_OFFSET , dpi) / 16.f;
+			rc.bottom += GetScaleUsingDpi(MAXIMIZED_RECTANGLE_OFFSET , dpi) / 16.f;
 			ID2D1SolidColorBrush* bgColorBrush = lightGrayBrush.Get();
 			if ( m_currentHoveredButtonId == wxID_MAXIMIZE_BOX )
 			{
@@ -307,11 +310,11 @@ void CustomCaptionFrame::RenderCaption()
 			}
 
 			context->FillRectangle(rc , bgColorBrush);
-			context->DrawRectangle(rc , buttonColorBrush.Get() , 1.5f);
+			context->DrawRectangle(rc , buttonColorBrush.Get() , GetScaleUsingDpi(1 , dpi) / 16.f);
 		}
 		else
 		{
-			context->DrawRectangle(icon_rect , buttonColorBrush.Get() , 2.f);
+			context->DrawRectangle(icon_rect , buttonColorBrush.Get() , GetScaleUsingDpi(1, dpi) / 16.f);
 		}
 	}
 	
@@ -326,8 +329,51 @@ void CustomCaptionFrame::RenderCaption()
 		pBrush = whiteColorBrush.Get();
 	}
 
-	context->DrawLine(D2D1::Point2F(icon_rect.left, icon_rect.top), D2D1::Point2F(icon_rect.right, icon_rect.bottom), pBrush, 2.f);
-	context->DrawLine(D2D1::Point2F(icon_rect.left, icon_rect.bottom), D2D1::Point2F(icon_rect.right, icon_rect.top), pBrush, 2.f);
+	context->DrawLine(D2D1::Point2F(icon_rect.left, icon_rect.top), D2D1::Point2F(icon_rect.right, icon_rect.bottom), pBrush, GetScaleUsingDpi(1 , dpi) / 16.f);
+	context->DrawLine(D2D1::Point2F(icon_rect.left, icon_rect.bottom), D2D1::Point2F(icon_rect.right, icon_rect.top), pBrush, GetScaleUsingDpi(1 , dpi) / 16.f);
+
+	icon_rect.top = 0.f;
+	icon_rect.left = 0.f;
+	icon_rect.right = icon_dimension + GetScaleUsingDpi(4 , dpi) / 16.f;
+	icon_rect.bottom = icon_dimension + GetScaleUsingDpi(4 , dpi) / 16.f;
+	win32_center_rect_in_rect(&icon_rect , ::GetRect(m_titleBarButtonRects.fullScreen));
+	context->DrawRoundedRectangle(D2D1::RoundedRect(icon_rect , GetScaleUsingDpi(1 , dpi) / 16.f , GetScaleUsingDpi(1 , dpi) / 16.f), buttonColorBrush.Get());
+	
+	{
+		ID2D1SolidColorBrush* bgColorBrush = lightGrayBrush.Get();
+		if ( m_currentHoveredButtonId == wxID_FULLSCREEN_BOX )
+		{
+			bgColorBrush = hoveredColorBrush.Get();
+		}
+
+	//	auto rect = icon_rect;
+	//	rect.top += GetScaleUsingDpi(1 , dpi) / 16.f;
+	//	rect.left += GetScaleUsingDpi(1 , dpi) / 16.f;
+	//	rect.right -= GetScaleUsingDpi(1 , dpi) / 16.f;
+	//	rect.bottom -= GetScaleUsingDpi(1 , dpi) / 16.f;
+	//	context->FillRoundedRectangle(D2D1::RoundedRect(rect , GetScaleUsingDpi(1 , dpi) / 16.f , GetScaleUsingDpi(1 , dpi) / 16.f), bgColorBrush);
+
+		icon_rect.left -= 1;
+		icon_rect.top -= 1;
+		icon_rect.bottom += 1;
+		icon_rect.right += 1;
+		auto rect2 = icon_rect;
+		rect2.top += GetScaleUsingDpi(5 , dpi) / 16.f;
+		rect2.bottom -= GetScaleUsingDpi(5 , dpi) / 16.f;
+		context->FillRectangle(rect2 , bgColorBrush);
+
+		rect2 = icon_rect;
+		rect2.left += GetScaleUsingDpi(5 , dpi) / 16.f;
+		rect2.right -= GetScaleUsingDpi(5 , dpi) / 16.f;
+		context->FillRectangle(rect2 , bgColorBrush);
+
+		rect2 = icon_rect;
+		rect2.top += GetScaleUsingDpi(5 , dpi) / 16.f;
+		rect2.left += GetScaleUsingDpi(5 , dpi) / 16.f;
+		rect2.right -= GetScaleUsingDpi(5 , dpi) / 16.f;
+		rect2.bottom -= GetScaleUsingDpi(5 , dpi) / 16.f;
+		context->DrawRoundedRectangle(D2D1::RoundedRect(rect2, GetScaleUsingDpi(1 , dpi) / 16.f, GetScaleUsingDpi(1 , dpi) / 16.f) , buttonColorBrush.Get(), GetScaleUsingDpi(1 , dpi) / 16.f);
+	}
 }
 
 void CustomCaptionFrame::DoThaw()
@@ -368,9 +414,9 @@ WXLRESULT CustomCaptionFrame::OnNcCalcSize(UINT nMsg, WPARAM wParam, LPARAM lPar
 
 	if(!IsFullScreen())
 	{
-		requestedClientRect->right -= m_borderThickness.x + m_borderPadding;
-		requestedClientRect->left += m_borderThickness.x + m_borderPadding;
-		requestedClientRect->bottom -= m_borderThickness.y + m_borderPadding;
+		requestedClientRect->right -= m_borderThickness.x;
+		requestedClientRect->left += m_borderThickness.x;
+		requestedClientRect->bottom -= m_borderThickness.y;
 		if (IsMaximized()) 
 		{
 			requestedClientRect->top += m_borderPadding;
@@ -410,6 +456,10 @@ WXLRESULT CustomCaptionFrame::OnNcHitTest(UINT nMsg, WPARAM wParam, LPARAM lPara
 	if(m_currentHoveredButtonId == wxID_CLOSE_BOX)
 	{
 		return HTCLOSE;
+	}
+	else if(m_currentHoveredButtonId == wxID_FULLSCREEN_BOX )
+	{
+		return HTCAPTION;
 	}
 
 	// Looks like adjustment happening in NCCALCSIZE is messing with the detection
@@ -481,6 +531,10 @@ WXLRESULT CustomCaptionFrame::OnNcLButtonUp(UINT nMsg, WPARAM wParam, LPARAM lPa
 
 	case wxID_MAXIMIZE_BOX:
 		::ShowWindow(GetHWND(), IsMaximized() ? SW_NORMAL : SW_MAXIMIZE);
+		return 0;
+
+	case wxID_FULLSCREEN_BOX:
+		ShowFullScreen(!IsFullScreen());
 		return 0;
 	}
 
@@ -569,13 +623,24 @@ void CustomCaptionFrame::UpdateCaptionDesc(int dpi)
 
 	m_titleBarButtonRects.minimize = m_titleBarButtonRects.maximize;
 	m_titleBarButtonRects.minimize.Offset(-buttonWidth , 0);
+
+	if(IsFullScreen())
+	{
+		m_titleBarButtonRects.fullScreen = m_titleBarButtonRects.close;
+	}
+	else
+	{
+		m_titleBarButtonRects.fullScreen = m_titleBarButtonRects.minimize;
+	}
+
+	m_titleBarButtonRects.fullScreen.Offset(-buttonWidth , 0);
 }
 
 wxWindowID CustomCaptionFrame::GetMouseOveredButtonId(const wxPoint& cursor) const
 {
 	wxWindowID id = wxID_ANY;
-	if (m_titleBarButtonRects.minimize.GetX() <= cursor.x
-		&& m_titleBarButtonRects.minimize.GetBottom() >= cursor.y)
+	if (m_titleBarButtonRects.fullScreen.GetX() <= cursor.x
+		&& m_titleBarButtonRects.fullScreen.GetBottom() >= cursor.y)
 	{
 		if (m_titleBarButtonRects.close.Contains(cursor))
 		{
@@ -591,6 +656,11 @@ wxWindowID CustomCaptionFrame::GetMouseOveredButtonId(const wxPoint& cursor) con
 			{
 				id = wxID_MAXIMIZE_BOX;
 			}
+		}
+
+		if(m_titleBarButtonRects.fullScreen.Contains(cursor))
+		{
+			id = wxID_FULLSCREEN_BOX;
 		}
 	}
 

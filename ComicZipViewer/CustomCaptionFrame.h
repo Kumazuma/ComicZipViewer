@@ -9,6 +9,7 @@ class CustomCaptionFrame: public wxFrame
 	static constexpr wxWindowID wxID_MINIMIZE_BOX = wxID_HIGHEST + 1;
 	static constexpr wxWindowID wxID_MAXIMIZE_BOX = wxID_MINIMIZE_BOX + 1;
 	static constexpr wxWindowID wxID_CLOSE_BOX = wxID_MAXIMIZE_BOX + 1;
+	static constexpr wxWindowID wxID_FULLSCREEN_BOX = wxID_CLOSE_BOX + 1;
 public:
 	CustomCaptionFrame();
 	CustomCaptionFrame(wxWindow* parent ,
@@ -69,6 +70,7 @@ private:
 		wxRect close;
 		wxRect maximize;
 		wxRect minimize;
+		wxRect fullScreen;
 	} m_titleBarButtonRects;
 	uint32_t m_captionOpacity;
 	float m_titleTextSize;
