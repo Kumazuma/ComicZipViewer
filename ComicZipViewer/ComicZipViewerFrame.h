@@ -8,6 +8,7 @@
 #include <dxgi1_3.h>
 #include <optional>
 
+#include "CustomCaptionFrame.h"
 #include "ToastSystem.h"
 
 struct Rect : public D2D1_RECT_F
@@ -38,28 +39,24 @@ constexpr wxWindowID ID_BTN_ADD_MARK = ID_BTN_BOOKMARK_VIEW + 1;
 constexpr wxWindowID ID_MENU_RECENT_FILE_ITEM_BEGIN = ID_BTN_ADD_MARK + 1;
 constexpr wxWindowID ID_MENU_RECENT_FILE_ITEM_END = ID_MENU_RECENT_FILE_ITEM_BEGIN + 33;
 
-class ComicZipViewerFrame: public wxFrame
+class ComicZipViewerFrame: public CustomCaptionFrame
 {
 	wxDECLARE_EVENT_TABLE();
 public:
 	ComicZipViewerFrame();
 	~ComicZipViewerFrame() override;
 	bool Create(wxEvtHandler* pView);
-	WXLRESULT MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam) override;
 	void ShowImage(const ComPtr<IWICBitmap>& image);
 	void SetSeekBarPos(int value);
 	void SetImageViewMode(ImageViewModeKind mode);
 	void SetPageIsMarked(bool);
 	void SetRecentFiles(std::vector<std::tuple<wxString, wxString>>&& list);
-	void TryRender();
-	void Render();
 	void ShowToast(const wxString& text, bool preventSameToast);
 protected:
-	void DoThaw() override;
+	void DoRender() override;
 	void OnSize(wxSizeEvent& evt);
 	void OnKeyDown(wxKeyEvent& evt);
 	void OnKeyUp(wxKeyEvent& evt);
-	void ResizeSwapChain(const wxSize clientRect);
 	void Fullscreen();
 	void RestoreFullscreen();
 	void OnShowControlPanel(wxCommandEvent& event);
@@ -85,13 +82,6 @@ private:
 	wxEvtHandler* m_pView;
 	wxBitmapBundle m_iconFitPage;
 	wxBitmapBundle m_iconFitWidth;
-	ComPtr<ID3D11Device> m_d3dDevice;
-	ComPtr<ID3D11DeviceContext> m_d3dContext;
-	ComPtr<ID2D1Device1> m_d2dDevice;
-	ComPtr<ID2D1DeviceContext1> m_d2dContext;
-	ComPtr<IDXGISwapChain1> m_swapChain;
-	ComPtr<ID2D1Bitmap1> m_targetBitmap;
-	ComPtr<ID2D1Factory2> m_d2dFactory;
 	ComPtr<ID2D1SolidColorBrush> m_d2dBlackBrush;
 	ComPtr<ID2D1SolidColorBrush> m_d2dBlueBrush;
 	ComPtr<ID2D1SolidColorBrush> m_d2dWhiteBrush;
@@ -106,7 +96,6 @@ private:
 	ComPtr<ID3D11UnorderedAccessView> m_d3dUavTexture2d;
 	ComPtr<ID3D11Texture2D> m_d3dTexture2d;
 	std::unordered_map<std::wstring_view, std::tuple<wxBitmapBundle, D2D1_RECT_F>> m_iconBitmapInfo;
-	bool m_isSizing;
 	bool m_enterIsDown;
 	bool m_shownControlPanel;
 	float m_alphaControlPanel;

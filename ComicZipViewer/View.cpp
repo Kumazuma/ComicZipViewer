@@ -4,8 +4,9 @@
 #include "ComicZipViewer.h"
 #include "ComicZipViewerFrame.h"
 #include "BookmarksDialog.h"
+#include "CustomCaptionFrame.h"
 
-wxDEFINE_EVENT(wxEVT_OPEN_BOOKMARK, wxCommandEvent);
+wxDEFINE_EVENT(wxEVT_OPEN_BOOKMARK , wxCommandEvent);
 
 View::View()
 	: m_pFrame(nullptr)
