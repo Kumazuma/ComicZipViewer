@@ -598,7 +598,7 @@ void CustomCaptionFrame::UpdateCaptionDesc(int dpi)
 	m_titleTextSize = GetScaleUsingDpi(fontDesc.lfHeight , dpi) * ( 1.f / 16.f );
 	if(fontDesc.lfHeight < 0)
 	{
-		m_titleTextSize = -fontDesc.lfHeight;
+		m_titleTextSize = GetScaleUsingDpi(-fontDesc.lfHeight , dpi) * ( 1.f / 16.f );
 	}
 
 	m_dwFactory->CreateTextFormat(fontDesc.lfFaceName , nullptr , ( DWRITE_FONT_WEIGHT ) fontDesc.lfWeight , DWRITE_FONT_STYLE_NORMAL , DWRITE_FONT_STRETCH_NORMAL , m_titleTextSize, L"ko-KR" , &m_dwTextFormat);
