@@ -337,7 +337,7 @@ void CustomCaptionFrame::RenderCaption()
 	icon_rect.right = icon_dimension + GetScaleUsingDpi(4 , dpi) / 16.f;
 	icon_rect.bottom = icon_dimension + GetScaleUsingDpi(4 , dpi) / 16.f;
 	win32_center_rect_in_rect(&icon_rect , ::GetRect(m_titleBarButtonRects.fullScreen));
-	context->DrawRoundedRectangle(D2D1::RoundedRect(icon_rect , GetScaleUsingDpi(1 , dpi) / 16.f , GetScaleUsingDpi(1 , dpi) / 16.f), buttonColorBrush.Get());
+	context->DrawRoundedRectangle(D2D1::RoundedRect(icon_rect , GetScaleUsingDpi(1 , dpi) / 16.f , GetScaleUsingDpi(1 , dpi) / 16.f), buttonColorBrush.Get(), GetScaleUsingDpi(1 , dpi) / 16.f);
 	
 	{
 		ID2D1SolidColorBrush* bgColorBrush = lightGrayBrush.Get();
@@ -594,11 +594,11 @@ void CustomCaptionFrame::UpdateCaptionDesc(int dpi)
 	GetThemeSysFont(theme , TMT_CAPTIONFONT , &fontDesc);
 	CloseThemeData(theme);
 
-	const int height = GetScaleUsingDpi(title_bar_size.cy , dpi) / 16 + topAndBottomBorder;
+	const int height = GetScaleUsingDpi(title_bar_size.cy + topAndBottomBorder, dpi) / 16;
 	m_titleTextSize = GetScaleUsingDpi(fontDesc.lfHeight , dpi) * ( 1.f / 16.f );
 	if(fontDesc.lfHeight < 0)
 	{
-		m_titleTextSize = GetScaleUsingDpi(-fontDesc.lfHeight , dpi) * ( 1.f / 16.f );
+		m_titleTextSize = -(fontDesc.lfHeight / (GetDpiForSystem() / 96.f)) * dpi / 96.f;
 	}
 
 	m_dwFactory->CreateTextFormat(fontDesc.lfFaceName , nullptr , ( DWRITE_FONT_WEIGHT ) fontDesc.lfWeight , DWRITE_FONT_STYLE_NORMAL , DWRITE_FONT_STRETCH_NORMAL , m_titleTextSize, L"ko-KR" , &m_dwTextFormat);

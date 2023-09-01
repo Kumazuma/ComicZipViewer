@@ -381,6 +381,7 @@ void ComicZipViewerFrame::DoRender()
 void ComicZipViewerFrame::OnSize(wxSizeEvent& evt)
 {
 	UpdateClientSize(GetClientSize());
+	Render();
 }
 
 void ComicZipViewerFrame::ShowToast(const wxString& text, bool preventSameToast)
@@ -429,7 +430,7 @@ void ComicZipViewerFrame::OnShowControlPanel(wxCommandEvent& event)
 		float delta = ((diff * 4096ll) / frequency) * ( 1.f / 4096.f);
 		m_alphaControlPanel += delta * 20.f;
 		Render();
-		wxYieldIfNeeded();
+		wxYield();
 	}
 }
 
@@ -452,7 +453,7 @@ void ComicZipViewerFrame::OnHideControlPanel(wxCommandEvent& event)
 		float delta = ((diff * 4096ll) / frequency) * ( 1.f / 4096.f);
 		m_alphaControlPanel -= delta * 20.f;
 		Render();
-		wxYieldIfNeeded();
+		wxYield();
 	}
 }
 
