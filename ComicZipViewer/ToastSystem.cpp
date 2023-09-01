@@ -95,7 +95,6 @@ void ToastSystem::Toast::Render(float dpi, const ComPtr<ID2D1DeviceContext1>& co
 		boxHeight  * 0.5f);
 	context->PushLayer(D2D1::LayerParameters(rect, nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE, D2D1::IdentityMatrix(), alpha), m_d2dLayer.Get());
 	
-
 	context->FillRoundedRectangle(D2D1::RoundedRect(
 		rect,
 		15 * dpi,
@@ -253,6 +252,11 @@ void ToastSystem::ResetResource()
 
 void ToastSystem::ShowToast()
 {
+	if(m_isRunning)
+	{
+		return;
+	}
+
 	m_isRunning = true;
 	auto prevTick  = GetTick();
 	auto frequency = GetTickFrequency();
@@ -270,7 +274,11 @@ void ToastSystem::ShowToast()
 		}
 
 		m_pTargetWindow->TryRender();
-		wxYieldIfNeeded();
+		if(!wxYieldIfNeeded())
+		{
+			CallAfter(&ToastSystem::ShowToast);
+			break;
+		}
 	}
 
 	m_isRunning = false;

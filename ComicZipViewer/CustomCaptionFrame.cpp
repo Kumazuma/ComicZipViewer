@@ -685,8 +685,8 @@ void CustomCaptionFrame::ShowWithFadeInCaption()
 			break;
 		}
 
-		Render();
-		wxYieldIfNeeded();
+		TryRender();
+		wxYield();
 	}
 }
 
@@ -709,8 +709,8 @@ void CustomCaptionFrame::HideWithFadeOutCaption()
 
 		m_captionOpacity -= delta * 20;
 
-		Render();
-		wxYieldIfNeeded();
+		TryRender();
+		wxYield();
 	}
 }
 
