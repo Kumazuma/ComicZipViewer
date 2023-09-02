@@ -461,6 +461,11 @@ std::vector<std::tuple<wxString, wxString>> ComicZipViewerApp::GetRecentReadBook
 	return list;
 }
 
+UpdateSystem& ComicZipViewerApp::GetUpdateSystem()
+{
+	return m_updateSystem;
+}
+
 bool ComicZipViewerApp::InitializeDatabase()
 {
 	char* errMsg;

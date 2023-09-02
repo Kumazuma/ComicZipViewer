@@ -72,13 +72,13 @@
     <ClInclude Include="PageCollectionCbt.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="D2DFrame.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
     <ClInclude Include="CustomCaptionFrame.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="D2DRenderSystem.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="UpdateSystem.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
@@ -137,6 +137,9 @@
     <ClCompile Include="PageCollectionCbt.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="UpdateSystem.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ComicZipViewer.rc">
@@ -183,5 +186,3 @@
     </FxCompile>
   </ItemGroup>
 </Project>
-
-

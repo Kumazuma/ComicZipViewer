@@ -7,9 +7,6 @@
 
 #include "tick.h"
 
-wxDEFINE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);
-wxDEFINE_EVENT(wxEVT_HIDE_CONTROL_PANEL, wxCommandEvent);
-
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d2d1.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -28,6 +25,70 @@ constexpr std::wstring_view ID_SVG_UNMARKED_PAGE = wxS("ID_SVG_UNMARKED_PAGE");
 constexpr std::wstring_view ID_SVG_TEXT_BULLET_LIST_SQUARE = wxS("ID_SVG_TEXT_BULLET_LIST_SQUARE");
 constexpr std::wstring_view ID_SVG_MOVE_TO_NEXT_BOOK = wxS("ID_SVG_MOVE_TO_NEXT_BOOK");
 constexpr std::wstring_view ID_SVG_MOVE_TO_PREV_BOOK = wxS("ID_SVG_MOVE_TO_PREV_BOOK");
+
+class ComicZipViewerFrame::ShowWithFadeInWorker: public UpdateSystem::Worker
+{
+public:
+	ShowWithFadeInWorker(ComicZipViewerFrame* pFrame)
+		: m_pFrame(pFrame)
+	{
+
+	}
+
+	void Update(uint64_t delta) override
+	{
+		m_pFrame->m_alphaControlPanel += delta * ( 1.f / 4096.f ) * 20.f;
+		if ( m_pFrame->m_alphaControlPanel >= 1.f )
+		{
+			m_pFrame->m_alphaControlPanel = 1.f;
+		}
+
+
+		m_pFrame->TryRender();
+	}
+
+	bool IsFinished() override
+	{
+		return !m_pFrame->m_shownControlPanel
+			|| m_pFrame->IsBeingDeleted()
+			|| m_pFrame->m_alphaControlPanel >= 1.f;
+	}
+
+private:
+	ComicZipViewerFrame* m_pFrame;
+};
+
+class ComicZipViewerFrame::HideWithFadeOutWorker: public UpdateSystem::Worker
+{
+public:
+	HideWithFadeOutWorker(ComicZipViewerFrame* pFrame)
+		: m_pFrame(pFrame)
+	{
+
+	}
+
+	void Update(uint64_t delta) override
+	{
+		m_pFrame->m_alphaControlPanel -= delta * ( 1.f / 4096.f ) * 20.f;
+		if ( m_pFrame->m_alphaControlPanel <= 0.f )
+		{
+			m_pFrame->m_alphaControlPanel = 0.f;
+		}
+
+
+		m_pFrame->TryRender();
+	}
+
+	bool IsFinished() override
+	{
+		return m_pFrame->m_shownControlPanel
+			|| m_pFrame->IsBeingDeleted()
+			|| m_pFrame->m_alphaControlPanel <= 0.f;
+	}
+
+private:
+	ComicZipViewerFrame* m_pFrame;
+};
 
 ComicZipViewerFrame::ComicZipViewerFrame()
 : m_enterIsDown(false)
@@ -411,61 +472,8 @@ void ComicZipViewerFrame::RestoreFullscreen()
 	Render();
 }
 
-void ComicZipViewerFrame::OnShowControlPanel(wxCommandEvent& event)
-{
-	const int64_t frequency = GetTickFrequency();
-	int64_t latestTick = GetTick();
-	while(m_shownControlPanel && !IsBeingDeleted())
-	{
-		if(m_alphaControlPanel >= 1.f)
-		{
-			m_alphaControlPanel = 1.f;
-			Render();
-			break;
-		}
-
-		int64_t current = GetTick();
-		const int64_t diff = current - latestTick;
-		latestTick = current;
-		float delta = ((diff * 4096ll) / frequency) * ( 1.f / 4096.f);
-		m_alphaControlPanel += delta * 20.f;
-		Render();
-		wxYield();
-	}
-}
-
-void ComicZipViewerFrame::OnHideControlPanel(wxCommandEvent& event)
-{
-	const int64_t frequency = GetTickFrequency();
-	int64_t latestTick = GetTick();
-	while(!m_shownControlPanel && !IsBeingDeleted())
-	{
-		if (m_alphaControlPanel <= 0.f)
-		{
-			m_alphaControlPanel = 0.f;
-			Render();
-			break;
-		}
-
-		int64_t current = GetTick();
-		const int64_t diff = current - latestTick;
-		latestTick = current;
-		float delta = ((diff * 4096ll) / frequency) * ( 1.f / 4096.f);
-		m_alphaControlPanel -= delta * 20.f;
-		Render();
-		wxYield();
-	}
-}
-
 void ComicZipViewerFrame::OnMouseLeave(wxMouseEvent& evt)
 {
-	if(m_shownControlPanel)
-	{
-		m_shownControlPanel = false;
-		auto evt = new wxCommandEvent(wxEVT_HIDE_CONTROL_PANEL);
-		evt->SetEventObject(this);
-		QueueEvent(evt);
-	}
 }
 
 void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
@@ -554,9 +562,7 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 		if(!m_shownControlPanel)
 		{
 			m_shownControlPanel = true;
-			auto evt = new wxCommandEvent(wxEVT_SHOW_CONTROL_PANEL);
-			evt->SetEventObject(this);
-			QueueEvent(evt);
+			wxGetApp().GetUpdateSystem().AddWorker(new ShowWithFadeInWorker(this));
 		}
 	}
 	else
@@ -564,9 +570,7 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 		if(m_shownControlPanel)
 		{
 			m_shownControlPanel = false;
-			auto evt = new wxCommandEvent(wxEVT_HIDE_CONTROL_PANEL);
-			evt->SetEventObject(this);
-			QueueEvent(evt);
+			wxGetApp().GetUpdateSystem().AddWorker(new HideWithFadeOutWorker(this));
 		}
 	}
 }
@@ -1164,8 +1168,6 @@ BEGIN_EVENT_TABLE(ComicZipViewerFrame , CustomCaptionFrame)
 	EVT_LEFT_UP(ComicZipViewerFrame::OnLMouseUp)
 	EVT_MOTION(ComicZipViewerFrame::OnMouseMove)
 	EVT_LEAVE_WINDOW(ComicZipViewerFrame::OnMouseLeave)
-	EVT_COMMAND(wxID_ANY, wxEVT_SHOW_CONTROL_PANEL, ComicZipViewerFrame::OnShowControlPanel)
-	EVT_COMMAND(wxID_ANY, wxEVT_HIDE_CONTROL_PANEL, ComicZipViewerFrame::OnHideControlPanel)
 	EVT_DPI_CHANGED(ComicZipViewerFrame::OnDpiChanged)
 	EVT_CONTEXT_MENU(ComicZipViewerFrame::OnContextMenu)
 	EVT_MOUSEWHEEL(ComicZipViewerFrame::OnMouseWheel)

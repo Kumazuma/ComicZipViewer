@@ -42,6 +42,8 @@ constexpr wxWindowID ID_MENU_RECENT_FILE_ITEM_END = ID_MENU_RECENT_FILE_ITEM_BEG
 class ComicZipViewerFrame: public CustomCaptionFrame
 {
 	wxDECLARE_EVENT_TABLE();
+	class ShowWithFadeInWorker;
+	class HideWithFadeOutWorker;
 public:
 	ComicZipViewerFrame();
 	~ComicZipViewerFrame() override;
@@ -59,8 +61,6 @@ protected:
 	void OnKeyUp(wxKeyEvent& evt);
 	void Fullscreen();
 	void RestoreFullscreen();
-	void OnShowControlPanel(wxCommandEvent& event);
-	void OnHideControlPanel(wxCommandEvent& event);
 	void OnMouseLeave(wxMouseEvent& evt);
 	void OnMouseMove(wxMouseEvent& evt);
 	void OnLMouseDown(wxMouseEvent& evt);
@@ -128,6 +128,3 @@ private:
 	float m_scale;
 	ToastSystem m_toastSystem;
 };
-
-wxDECLARE_EVENT(wxEVT_SHOW_CONTROL_PANEL, wxCommandEvent);
-wxDECLARE_EVENT(wxEVT_HIDE_CONTROL_PANEL, wxCommandEvent);

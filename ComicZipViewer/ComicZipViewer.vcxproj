@@ -179,6 +179,7 @@
     <ClInclude Include="SimpleBuffer.h" />
     <ClInclude Include="tick.h" />
     <ClInclude Include="ToastSystem.h" />
+    <ClInclude Include="UpdateSystem.h" />
     <ClInclude Include="View.h" />
     <ClInclude Include="VisualWidget.h" />
   </ItemGroup>
@@ -199,6 +200,7 @@
     <ClCompile Include="RadioButtonGroup.cpp" />
     <ClCompile Include="SimpleBuffer.cpp" />
     <ClCompile Include="ToastSystem.cpp" />
+    <ClCompile Include="UpdateSystem.cpp" />
     <ClCompile Include="View.cpp" />
     <ClCompile Include="VisualWidget.cpp" />
   </ItemGroup>

@@ -3,6 +3,8 @@
 #include <uxtheme.h>
 #include <Vsstyle.h>
 #include <vssym32.h>
+
+#include "ComicZipViewer.h"
 #include "tick.h"
 
 inline static int GetScaleUsingDpi(int value, int dpi)
@@ -10,16 +12,72 @@ inline static int GetScaleUsingDpi(int value, int dpi)
 	return ((value * 16) * ((dpi * 16) / 96)) / 16;
 }
 
-static constexpr const char SVG_ICON_FULLSCREEN_STR[] =
-R"(<?xml version="1.0" encoding="utf-8"?><!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
-<svg fill="#000000" width="800px" height="800px" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="fullscreen"  enable-background="new 0 0 32 32" xml:space="preserve">
-  <path d="M9 23h14V9H9V23zM11 11h10v10H11V11z"/>
-  <polygon points="7,21 5,21 5,27 11,27 11,25 7,25 "/>
-  <polygon points="7,7 11,7 11,5 5,5 5,11 7,11 "/>
-  <polygon points="25,25 21,25 21,27 27,27 27,21 25,21 "/>
-  <polygon points="21,5 21,7 25,7 25,11 27,11 27,5 "/>
-</svg>)";
+class CustomCaptionFrame::ShowWithFadeInWorker: public UpdateSystem::Worker
+{
+public:
+	ShowWithFadeInWorker(CustomCaptionFrame* pFrame)
+		: m_pFrame(pFrame)
+	{
 
+	}
+
+	void Update(uint64_t delta) override
+	{
+		m_pFrame->m_captionOpacity += delta * 20;
+		if ( m_pFrame->m_captionOpacity >= 4096 )
+		{
+			m_pFrame->m_captionOpacity = 4096;
+			m_pFrame->Render();
+		}
+
+		m_pFrame->TryRender();
+	}
+
+	bool IsFinished() override
+	{
+		return !m_pFrame->m_shownCaption
+			|| m_pFrame->IsBeingDeleted()
+			|| m_pFrame->m_captionOpacity >= 4096;
+	}
+
+private:
+
+	CustomCaptionFrame* m_pFrame;
+};
+
+class CustomCaptionFrame::HideWithFadeOutWorker: public UpdateSystem::Worker
+{
+public:
+	HideWithFadeOutWorker(CustomCaptionFrame* pFrame)
+		: m_pFrame(pFrame)
+	{
+
+	}
+
+	void Update(uint64_t delta) override
+	{
+
+		if ( m_pFrame->m_captionOpacity < delta * 20 )
+		{
+			m_pFrame->m_captionOpacity = 0;
+			m_pFrame->Render();
+			return;
+		}
+
+		m_pFrame->m_captionOpacity -= delta * 20;
+		m_pFrame->TryRender();
+	}
+
+	bool IsFinished() override
+	{
+		return m_pFrame->m_shownCaption
+			|| m_pFrame->IsBeingDeleted()
+			|| m_pFrame->m_captionOpacity == 0;
+	}
+
+private:
+	CustomCaptionFrame* m_pFrame;
+};
 
 CustomCaptionFrame::CustomCaptionFrame()
 : m_currentHoveredButtonId(wxID_ANY)
@@ -478,7 +536,7 @@ WXLRESULT CustomCaptionFrame::OnNcHitTest(UINT nMsg, WPARAM wParam, LPARAM lPara
 		if ( !m_shownCaption )
 		{
 			m_shownCaption = true;
-			CallAfter(&CustomCaptionFrame::ShowWithFadeInCaption);
+			wxGetApp().GetUpdateSystem().AddWorker(new ShowWithFadeInWorker(this));
 		}
 
 		if( !isFullScreen )
@@ -489,7 +547,7 @@ WXLRESULT CustomCaptionFrame::OnNcHitTest(UINT nMsg, WPARAM wParam, LPARAM lPara
 	else if ( m_shownCaption )
 	{
 		m_shownCaption = false;
-		CallAfter(&CustomCaptionFrame::HideWithFadeOutCaption);
+		wxGetApp().GetUpdateSystem().AddWorker(new HideWithFadeOutWorker(this));
 	}
 
 	return HTCLIENT;
@@ -557,13 +615,13 @@ WXLRESULT CustomCaptionFrame::OnNcMouseMove(UINT nMsg, WPARAM wParam, LPARAM lPa
 		if( !m_shownCaption )
 		{
 			m_shownCaption = true;
-			CallAfter(&CustomCaptionFrame::ShowWithFadeInCaption);
+			wxGetApp().GetUpdateSystem().AddWorker(new ShowWithFadeInWorker(this));
 		}
 	}
 	else if( m_shownCaption )
 	{
 		m_shownCaption = false;
-		CallAfter(&CustomCaptionFrame::HideWithFadeOutCaption);
+		wxGetApp().GetUpdateSystem().AddWorker(new HideWithFadeOutWorker(this));
 	}
 
 	return wxFrame::MSWWindowProc(nMsg, wParam, lParam);
@@ -665,53 +723,6 @@ wxWindowID CustomCaptionFrame::GetMouseOveredButtonId(const wxPoint& cursor) con
 	}
 
 	return id;
-}
-
-void CustomCaptionFrame::ShowWithFadeInCaption()
-{
-	const int64_t frequency = GetTickFrequency();
-	int64_t latestTick = GetTick();
-	while( m_shownCaption && !IsBeingDeleted() )
-	{
-		int64_t current = GetTick();
-		const int64_t diff = current - latestTick;
-		latestTick = current;
-		uint32_t delta = ( ( diff * 4096ll ) / frequency );
-		m_captionOpacity += delta * 20;
-		if ( m_captionOpacity >= 4096 )
-		{
-			m_captionOpacity = 4096;
-			Render();
-			break;
-		}
-
-		TryRender();
-		wxYield();
-	}
-}
-
-void CustomCaptionFrame::HideWithFadeOutCaption()
-{
-	const int64_t frequency = GetTickFrequency();
-	int64_t latestTick = GetTick();
-	while ( !m_shownCaption && !IsBeingDeleted() )
-	{
-		int64_t current = GetTick();
-		const int64_t diff = current - latestTick;
-		latestTick = current;
-		uint32_t delta = ( ( diff * 4096ll ) / frequency );
-		if( m_captionOpacity < delta * 20 )
-		{
-			m_captionOpacity = 0;
-			Render();
-			break;
-		}
-
-		m_captionOpacity -= delta * 20;
-
-		TryRender();
-		wxYield();
-	}
 }
 
 HRESULT CustomCaptionFrame::GetContainingOutput(IDXGIOutput** ppOutput)

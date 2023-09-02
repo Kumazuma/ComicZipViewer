@@ -3,6 +3,7 @@
 #include <wx/wx.h>
 #include "PageCollection.h"
 #include "sqlite3.h"
+#include "UpdateSystem.h"
 
 class View;
 struct Model;
@@ -34,12 +35,15 @@ public:
 	wxString GetPrevBook(const wxString& prefix);
 	std::vector<wxString> GetBookListInParentDir(const wxString& parentPath);
 	std::vector<std::tuple<wxString, wxString>> GetRecentReadBookAndPage() const;
+	UpdateSystem& GetUpdateSystem();
+
 private:
 	bool InitializeDatabase();
 	void InsertPageNameForReopen(const wxString& prefix, const wxString& pageName);
 	bool Open(const wxString& filePath);
 
 private:
+	UpdateSystem m_updateSystem;
 	ComPtr<IWICImagingFactory2> m_wicFactory;
 	View* m_pView;
 	Model* m_pModel;
