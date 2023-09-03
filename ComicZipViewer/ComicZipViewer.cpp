@@ -431,15 +431,36 @@ wxString ComicZipViewerApp::GetPrevBook(const wxString& prefix)
 
 std::vector<wxString> ComicZipViewerApp::GetBookListInParentDir(const wxString& parentPath)
 {
-	wxArrayString s;
-	wxDir::GetAllFiles(parentPath , &s , wxS("*.zip") , wxDIR_FILES);
-	std::vector<wxString> list;
-	for(auto& it: s)
+	class Traverser: public wxDirTraverser
 	{
-		list.emplace_back(wxString{});
-		list.back().swap(it);
-	}
+		std::vector<wxString>& m_list;
+	public:
+		Traverser(std::vector<wxString>& list) : m_list(list) {}
+		wxDirTraverseResult OnDir(const wxString& dirname) override
+		{
+			return wxDIR_IGNORE;
+		}
 
+		wxDirTraverseResult OnFile(const wxString& filename) override
+		{
+			auto i = filename.find_last_of(wxS("."));
+			if(i == wxString::npos)
+				return wxDIR_CONTINUE;
+
+			auto s = filename.SubString(i + 1, filename.Length()).Lower();
+			if(s == wxS("zip") || s == wxS("cbt"))
+			{
+				m_list.push_back(filename);
+			}
+
+			return wxDIR_CONTINUE;
+		}
+	};
+
+	std::vector<wxString> list;
+	Traverser traverser(list);
+	wxDir dir(parentPath);
+	dir.Traverse(traverser, wxS("*.*"), wxDIR_FILES);
 	return list;
 }
 
