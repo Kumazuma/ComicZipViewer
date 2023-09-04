@@ -482,6 +482,27 @@ std::vector<std::tuple<wxString, wxString>> ComicZipViewerApp::GetRecentReadBook
 	return list;
 }
 
+void ComicZipViewerApp::DeleteAllBookmarks()
+{
+	char* errmsg;
+	int ret = sqlite3_exec(m_pSqlite , "DELETE FROM tb_bookmarks_v1" , nullptr , nullptr , &errmsg);
+	if(ret != SQLITE_OK)
+	{
+		wxLogError(wxS("SQLite3 Error: %s") , errmsg);
+	}
+
+}
+
+void ComicZipViewerApp::DeleteAllLatestReadPages()
+{
+	char* errmsg;
+	int ret = sqlite3_exec(m_pSqlite , "DELETE FROM tb_page_last_read_v2" , nullptr , nullptr , &errmsg);
+	if ( ret != SQLITE_OK )
+	{
+		wxLogError(wxS("SQLite3 Error: %s") , errmsg);
+	}
+}
+
 UpdateSystem& ComicZipViewerApp::GetUpdateSystem()
 {
 	return m_updateSystem;

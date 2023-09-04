@@ -13,7 +13,7 @@ public:
 	bool Create(wxWindow* parent, wxWindowID winId, wxEvtHandler* pView, std::vector<std::tuple<int, wxString, wxString>>&& list);
 	WXLRESULT MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam) override;
 	int GetSelection() const;
-
+	void SetList(std::vector<std::tuple<int , wxString , wxString>>&& list);
 protected:
 	void OnPaintEvent(wxPaintEvent&);
 	void OnSizeEvent(wxSizeEvent&);
@@ -22,6 +22,7 @@ protected:
 	void Render();
 	void OnTreeItemActivated(wxTreeEvent&);
 	void OnTreeSelectionChanged(wxTreeEvent&);
+
 private:
 	wxTreeCtrl* m_pTreeCtrl;
 	std::vector<std::tuple<int, wxString, wxString>> m_list;

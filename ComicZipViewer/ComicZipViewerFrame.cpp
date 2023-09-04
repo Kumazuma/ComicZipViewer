@@ -6,6 +6,7 @@
 #include <wx/bitmap.h>
 
 #include "tick.h"
+#include "id.h"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d2d1.lib")
@@ -1118,6 +1119,15 @@ void ComicZipViewerFrame::SetRecentFiles(std::vector<std::tuple<wxString, wxStri
 	for(auto& it: items)
 	{
 		m_pRecentFileMenu->Delete(it);
+	}
+
+	m_pRecentFileMenu->Append(ID_BTN_CLEAR_LATEST_READ_PAGE , wxS("Remove all latest read pages"));
+	m_pRecentFileMenu->AppendSeparator();
+	if( list.empty())
+	{
+		m_recentFileList.clear();
+		m_pRecentFileMenu->Append(wxID_ANY , wxS("Emptry"))->Enable(false);
+		return;
 	}
 
 	std::unordered_map<std::wstring_view, wxMenuItem*> roots; // <prefix>

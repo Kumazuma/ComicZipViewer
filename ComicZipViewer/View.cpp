@@ -5,6 +5,7 @@
 #include "ComicZipViewerFrame.h"
 #include "BookmarksDialog.h"
 #include "CustomCaptionFrame.h"
+#include "id.h"
 
 wxDEFINE_EVENT(wxEVT_OPEN_BOOKMARK , wxCommandEvent);
 
@@ -205,6 +206,14 @@ void View::OnClickedBookmarks(wxCommandEvent&)
 	if(!dialog.Create(m_pFrame, wxID_ANY, this, std::forward<decltype(bookmarks)>(bookmarks)))
 		return;
 
+	dialog.Bind(wxEVT_BUTTON , [&dialog](wxCommandEvent&)
+	{
+		auto& app = wxGetApp();
+		app.DeleteAllBookmarks();
+		auto bookmarks = app.GetAllMarkedPages();
+		dialog.SetList(std::move(bookmarks));
+	} , ID_BTN_DELETE_ALL_BOOKMARK);
+
 	dialog.SetSize(m_pFrame->GetSize() / 2);
 	dialog.CenterOnParent();
 	if(dialog.ShowModal() != wxID_OK)
@@ -218,27 +227,6 @@ void View::OnClickedBookmarks(wxCommandEvent&)
 	ShowBook();
 }
 
-void View::OnOpenedBookmark(wxCommandEvent&)
-{
-	auto& app = wxGetApp();
-	auto bookmarks = app.GetAllMarkedPages();
-	BookmarksDialog diloag;
-	if ( !diloag.Create(m_pFrame , wxID_ANY , this , std::forward<decltype( bookmarks )>(bookmarks)) )
-		return;
-
-	diloag.CenterOnParent();
-
-	if ( diloag.ShowModal() != wxID_OK )
-		return;
-
-	const auto id = diloag.GetSelection();
-	if ( id == 0 )
-		return;
-
-	app.OpenBookmark(id);
-	ShowBook();
-}
-
 void View::OnMenuRecentFile(wxCommandEvent& evt)
 {
 	auto& app = wxGetApp();
@@ -246,6 +234,13 @@ void View::OnMenuRecentFile(wxCommandEvent& evt)
 		return;
 
 	ShowBook();
+}
+
+void View::OnCommandRemoveAllLatestReadPages(wxCommandEvent&)
+{
+	auto& app = wxGetApp();
+	app.DeleteAllLatestReadPages();
+	m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
 }
 
 void View::ShowBook()
@@ -282,7 +277,8 @@ BEGIN_EVENT_TABLE(View , wxEvtHandler)
 	EVT_BUTTON(ID_BTN_ORIGINAL, View::OnClickedOriginal)
 	EVT_BUTTON(ID_BTN_MOVE_TO_NEXT_PAGE, View::OnClickedMoveNextBook)
 	EVT_BUTTON(ID_BTN_MOVE_TO_PREV_PAGE , View::OnClickedMovePrevBook)
-	EVT_COMMAND(wxID_ANY, wxEVT_OPEN_BOOKMARK, View::OnOpenedBookmark)
+	EVT_COMMAND(wxID_ANY, wxEVT_OPEN_BOOKMARK, View::OnClickedBookmarks)
 	EVT_MENU_RANGE(ID_MENU_RECENT_FILE_ITEM_BEGIN, ID_MENU_RECENT_FILE_ITEM_END, View::OnMenuRecentFile)
+	EVT_MENU(ID_BTN_CLEAR_LATEST_READ_PAGE, View::OnCommandRemoveAllLatestReadPages)
 	EVT_MENU(wxID_ANY , View::OnMenu)
 END_EVENT_TABLE()

@@ -23,8 +23,8 @@ protected:
 	void OnForward(wxCommandEvent&);
 	void OnBackward(wxCommandEvent&);
 	void OnClickedBookmarks(wxCommandEvent&);
-	void OnOpenedBookmark(wxCommandEvent&);
 	void OnMenuRecentFile(wxCommandEvent&);
+	void OnCommandRemoveAllLatestReadPages(wxCommandEvent&);
 	void ShowBook();
 private:
 	ComicZipViewerFrame* m_pFrame;

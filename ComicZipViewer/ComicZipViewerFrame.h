@@ -29,16 +29,6 @@ enum class ImageViewModeKind
 	FIT_WIDTH
 };
 
-constexpr wxWindowID ID_BTN_MOVE_TO_PREV_PAGE = wxID_HIGHEST + 1;
-constexpr wxWindowID ID_BTN_MOVE_TO_NEXT_PAGE = ID_BTN_MOVE_TO_PREV_PAGE + 1;
-constexpr wxWindowID ID_BTN_FIT_WIDTH = ID_BTN_MOVE_TO_NEXT_PAGE + 1;
-constexpr wxWindowID ID_BTN_FIT_PAGE = ID_BTN_FIT_WIDTH + 1;
-constexpr wxWindowID ID_BTN_ORIGINAL =ID_BTN_FIT_PAGE + 1;
-constexpr wxWindowID ID_BTN_BOOKMARK_VIEW = ID_BTN_ORIGINAL + 1;
-constexpr wxWindowID ID_BTN_ADD_MARK = ID_BTN_BOOKMARK_VIEW + 1;
-constexpr wxWindowID ID_MENU_RECENT_FILE_ITEM_BEGIN = ID_BTN_ADD_MARK + 1;
-constexpr wxWindowID ID_MENU_RECENT_FILE_ITEM_END = ID_MENU_RECENT_FILE_ITEM_BEGIN + 33;
-
 class ComicZipViewerFrame: public CustomCaptionFrame
 {
 	wxDECLARE_EVENT_TABLE();
@@ -78,6 +68,7 @@ protected:
 	void BeginButtonProcess(wxPoint& pos);
 	void EndButtonProcess(wxPoint& pos);
 	void ChangeScale(float delta, const wxPoint& center);
+
 private:
 	wxEvtHandler* m_pView;
 	wxBitmapBundle m_iconFitPage;

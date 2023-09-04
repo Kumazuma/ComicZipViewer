@@ -35,6 +35,8 @@ public:
 	wxString GetPrevBook(const wxString& prefix);
 	std::vector<wxString> GetBookListInParentDir(const wxString& parentPath);
 	std::vector<std::tuple<wxString, wxString>> GetRecentReadBookAndPage() const;
+	void DeleteAllBookmarks();
+	void DeleteAllLatestReadPages();
 	UpdateSystem& GetUpdateSystem();
 
 private:

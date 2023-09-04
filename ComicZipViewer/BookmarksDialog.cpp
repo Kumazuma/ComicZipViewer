@@ -1,6 +1,9 @@
 #include "framework.h"
 #include "BookmarksDialog.h"
 #include <wx/graphics.h>
+#include <wx/artprov.h>
+
+#include "id.h"
 
 class TreeData: public wxTreeItemData
 {
@@ -26,54 +29,15 @@ bool BookmarksDialog::Create(wxWindow* parent, wxWindowID winId, wxEvtHandler* p
 	wxDialog::Create(parent, winId, wxS("Bookmarks"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
 	m_pTreeCtrl = new wxTreeCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTR_HAS_BUTTONS | wxTR_LINES_AT_ROOT | wxTR_HIDE_ROOT);
 	auto bSizer = new wxBoxSizer(wxVERTICAL);
-	bSizer->Add(m_pTreeCtrl, 1, wxEXPAND | wxALL, 5);
+	auto bSizer2 = new wxBoxSizer(wxHORIZONTAL);
+	auto button = new wxBitmapButton(this , ID_BTN_DELETE_ALL_BOOKMARK , wxArtProvider::GetBitmapBundle(wxART_DEL_BOOKMARK , wxART_BUTTON));
+	button->SetToolTip(wxS("Delete all bookmarks"));
+	bSizer2->Add(0 , 0 , 1 , wxEXPAND , 5);
+	bSizer2->Add(button);
+	bSizer->Add(bSizer2 , 0 , wxEXPAND | wxTOP | wxLEFT | wxRIGHT, 5);
+	bSizer->Add(m_pTreeCtrl, 1, wxEXPAND | wxLEFT | wxRIGHT , 5);
 	bSizer->Add(CreateButtonSizer(wxOK | wxCANCEL), 0, wxEXPAND | wxALL, 5);
-	auto rootId = m_pTreeCtrl->AddRoot(wxS(""));
-
-	std::unordered_map<wxString, wxTreeItemId> roots; // <prefix>
-	std::unordered_map<wxString, wxString> prefixTreeTextTable; // <NameWithExt, Prefix>
-	for(auto& tuple : m_list)
-	{
-		wxTreeItemId id;
-		auto& prefix = std::get<1>(tuple);
-		wxFileName fileName(prefix);
-		auto nameWithExt = fileName.GetFullName();
-		auto& item = std::get<2>(tuple);
-		auto rootTableIt = roots.find(prefix);
-		if(rootTableIt == roots.end())
-		{
-			auto it2 = prefixTreeTextTable.find(nameWithExt);
-			wxString text;
-			if(it2 == prefixTreeTextTable.end())
-			{
-				prefixTreeTextTable.emplace(nameWithExt, prefix);
-				text = nameWithExt;
-			}
-			else
-			{
-				text = wxString::Format(wxS("%s(%s)"), fileName.GetFullName(), fileName.GetPath());
-				if(!it2->second.IsEmpty())
-				{
-					auto& prefix2 = it2->second;
-					fileName = wxFileName(prefix2);
-					id = roots[it2->second];
-					auto newName = wxString::Format(wxS("%s(%s)"), fileName.GetFullName(), fileName.GetPath());
-					it2->second.Clear();
-					m_pTreeCtrl->SetItemText(id, newName);
-				}
-			}
-
-			id = m_pTreeCtrl->AppendItem(rootId, text);
-			rootTableIt = roots.emplace(prefix, id).first;
-		}
-
-		id = rootTableIt->second;
-		id = m_pTreeCtrl->AppendItem(id, item);
-		m_pTreeCtrl->SetItemData(id, new TreeData(std::get<0>(tuple)));
-	}
-
-	m_pTreeCtrl->ExpandAll();
-
+	SetList(std::move(list));
 	SetSizer(bSizer);
 	Layout();
 	return true;
@@ -184,7 +148,57 @@ int BookmarksDialog::GetSelection() const
 	return m_selectedIdx;
 }
 
-BEGIN_EVENT_TABLE(BookmarksDialog , wxDialog)
+void BookmarksDialog::SetList(std::vector<std::tuple<int, wxString, wxString>>&& list)
+{
+	m_list = std::move(list);
+	m_pTreeCtrl->DeleteAllItems();
+	auto rootId = m_pTreeCtrl->AddRoot(wxS(""));
+	std::unordered_map<wxString , wxTreeItemId> roots; // <prefix>
+	std::unordered_map<wxString , wxString> prefixTreeTextTable; // <NameWithExt, Prefix>
+	for ( auto& tuple : m_list )
+	{
+		wxTreeItemId id;
+		auto& prefix = std::get<1>(tuple);
+		wxFileName fileName(prefix);
+		auto nameWithExt = fileName.GetFullName();
+		auto& item = std::get<2>(tuple);
+		auto rootTableIt = roots.find(prefix);
+		if ( rootTableIt == roots.end() )
+		{
+			auto it2 = prefixTreeTextTable.find(nameWithExt);
+			wxString text;
+			if ( it2 == prefixTreeTextTable.end() )
+			{
+				prefixTreeTextTable.emplace(nameWithExt , prefix);
+				text = nameWithExt;
+			}
+			else
+			{
+				text = wxString::Format(wxS("%s(%s)") , fileName.GetFullName() , fileName.GetPath());
+				if ( !it2->second.IsEmpty() )
+				{
+					auto& prefix2 = it2->second;
+					fileName = wxFileName(prefix2);
+					id = roots[ it2->second ];
+					auto newName = wxString::Format(wxS("%s(%s)") , fileName.GetFullName() , fileName.GetPath());
+					it2->second.Clear();
+					m_pTreeCtrl->SetItemText(id , newName);
+				}
+			}
+
+			id = m_pTreeCtrl->AppendItem(rootId , text);
+			rootTableIt = roots.emplace(prefix , id).first;
+		}
+
+		id = rootTableIt->second;
+		id = m_pTreeCtrl->AppendItem(id , item);
+		m_pTreeCtrl->SetItemData(id , new TreeData(std::get<0>(tuple)));
+	}
+
+	m_pTreeCtrl->ExpandAll();
+}
+
+BEGIN_EVENT_TABLE(BookmarksDialog, wxDialog)
 	//EVT_PAINT(BookmarksDialog::OnPaintEvent)
 	//EVT_SIZE(BookmarksDialog::OnSizeEvent)
 	EVT_TREE_ITEM_ACTIVATED(wxID_ANY, BookmarksDialog::OnTreeItemActivated)
