@@ -448,7 +448,7 @@ std::vector<wxString> ComicZipViewerApp::GetBookListInParentDir(const wxString& 
 				return wxDIR_CONTINUE;
 
 			auto s = filename.SubString(i + 1, filename.Length()).Lower();
-			if(s == wxS("zip") || s == wxS("cbt"))
+			if(s == wxS("zip") || s == wxS("cbt") || s == wxS("cbz"))
 			{
 				m_list.push_back(filename);
 			}
