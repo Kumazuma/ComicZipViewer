@@ -1121,7 +1121,7 @@ void ComicZipViewerFrame::SetRecentFiles(std::vector<std::tuple<wxString, wxStri
 		m_pRecentFileMenu->Delete(it);
 	}
 
-	m_pRecentFileMenu->Append(ID_BTN_CLEAR_LATEST_READ_PAGE , wxS("Remove all latest read pages"));
+	m_pRecentFileMenu->Append(ID_CLEAR_LATEST_READ_PAGE , wxS("Remove all latest read pages"));
 	m_pRecentFileMenu->AppendSeparator();
 	if( list.empty())
 	{

@@ -10,6 +10,7 @@ class BookmarksDialog: public wxDialog
 
 public:
 	BookmarksDialog() = default;
+	~BookmarksDialog() override;
 	bool Create(wxWindow* parent, wxWindowID winId, wxEvtHandler* pView, std::vector<std::tuple<int, wxString, wxString>>&& list);
 	WXLRESULT MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam) override;
 	int GetSelection() const;
@@ -22,7 +23,8 @@ protected:
 	void Render();
 	void OnTreeItemActivated(wxTreeEvent&);
 	void OnTreeSelectionChanged(wxTreeEvent&);
-
+	void OnTreeItemMenu(wxTreeEvent&);
+	void OnCommandRemoveItem(wxCommandEvent&);
 private:
 	wxTreeCtrl* m_pTreeCtrl;
 	std::vector<std::tuple<int, wxString, wxString>> m_list;
@@ -32,4 +34,5 @@ private:
 	int m_selectedIdx;
 	wxBitmap m_backBuffer;
 	wxSize m_clientSize;
+	wxMenu* m_pMenu;
 };

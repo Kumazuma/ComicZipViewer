@@ -22,24 +22,31 @@ private:
 	
 };
 
+BookmarksDialog::~BookmarksDialog()
+{
+	delete m_pMenu;
+	m_pMenu = nullptr;
+}
+
 bool BookmarksDialog::Create(wxWindow* parent, wxWindowID winId, wxEvtHandler* pView, std::vector<std::tuple<int, wxString, wxString>>&& list)
 {
-	m_list = std::move(list);
 	m_pView = pView;
 	wxDialog::Create(parent, winId, wxS("Bookmarks"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER);
 	m_pTreeCtrl = new wxTreeCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTR_HAS_BUTTONS | wxTR_LINES_AT_ROOT | wxTR_HIDE_ROOT);
 	auto bSizer = new wxBoxSizer(wxVERTICAL);
-	auto bSizer2 = new wxBoxSizer(wxHORIZONTAL);
-	auto button = new wxBitmapButton(this , ID_BTN_DELETE_ALL_BOOKMARK , wxArtProvider::GetBitmapBundle(wxART_DEL_BOOKMARK , wxART_BUTTON));
-	button->SetToolTip(wxS("Delete all bookmarks"));
-	bSizer2->Add(0 , 0 , 1 , wxEXPAND , 5);
-	bSizer2->Add(button);
-	bSizer->Add(bSizer2 , 0 , wxEXPAND | wxTOP | wxLEFT | wxRIGHT, 5);
+	auto toolbar = new wxToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTB_HORIZONTAL);
+	toolbar->AddTool(ID_CLEAR_BOOKMARK, wxS("Clear all bookmarks"), wxBitmapBundle::FromSVGResource(wxS("ID_SVG_TRASH_CAN"), wxSize(24, 24)), wxS("Clear all bookmarks"));
+	toolbar->Realize();
+	bSizer->Add(toolbar, 0 , wxLEFT | wxRIGHT, 5);
 	bSizer->Add(m_pTreeCtrl, 1, wxEXPAND | wxLEFT | wxRIGHT , 5);
 	bSizer->Add(CreateButtonSizer(wxOK | wxCANCEL), 0, wxEXPAND | wxALL, 5);
 	SetList(std::move(list));
 	SetSizer(bSizer);
 	Layout();
+
+	m_pMenu  = new wxMenu();
+	m_pMenu->Append(wxID_REMOVE, wxS("Remove"));
+	m_pMenu->SetEventHandler(this);
 	return true;
 }
 
@@ -143,6 +150,37 @@ void BookmarksDialog::OnTreeSelectionChanged(wxTreeEvent& evt)
 	m_selectedIdx = static_cast<TreeData*>(pItemData)->GetIdx();
 }
 
+void BookmarksDialog::OnTreeItemMenu(wxTreeEvent& evt)
+{
+	auto pt = evt.GetPoint();
+	PopupMenu(m_pMenu, pt);
+}
+
+void BookmarksDialog::OnCommandRemoveItem(wxCommandEvent& evt)
+{
+	auto item = m_pTreeCtrl->GetSelection();
+	if(!item.IsOk())
+	{
+		return;
+	}
+
+	auto data = static_cast<TreeData*>(item.GetID());
+	if(data == nullptr)
+	{
+		wxTreeItemIdValue context;
+		wxTreeItemId it;
+		std::vector<int> bookmarkIdxList; 
+		while((it = m_pTreeCtrl->GetNextChild(item, context)).IsOk())
+		{
+			bookmarkIdxList.push_back(static_cast<TreeData*>(item.GetID())->GetIdx());
+		}
+	}
+	else
+	{
+		
+	}
+}
+
 int BookmarksDialog::GetSelection() const
 {
 	return m_selectedIdx;
@@ -203,4 +241,6 @@ BEGIN_EVENT_TABLE(BookmarksDialog, wxDialog)
 	//EVT_SIZE(BookmarksDialog::OnSizeEvent)
 	EVT_TREE_ITEM_ACTIVATED(wxID_ANY, BookmarksDialog::OnTreeItemActivated)
 	EVT_TREE_SEL_CHANGED(wxID_ANY, BookmarksDialog::OnTreeSelectionChanged)
+	EVT_TREE_ITEM_MENU(wxID_ANY, BookmarksDialog::OnTreeItemMenu)
+	EVT_MENU(wxID_REMOVE, BookmarksDialog::OnCommandRemoveItem)
 END_EVENT_TABLE()

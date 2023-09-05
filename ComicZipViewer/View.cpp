@@ -206,13 +206,18 @@ void View::OnClickedBookmarks(wxCommandEvent&)
 	if(!dialog.Create(m_pFrame, wxID_ANY, this, std::forward<decltype(bookmarks)>(bookmarks)))
 		return;
 
-	dialog.Bind(wxEVT_BUTTON , [&dialog](wxCommandEvent&)
+	dialog.Bind(wxEVT_TOOL , [&dialog, this](wxCommandEvent&)
 	{
+		if(wxMessageBox(wxS("Do you clear all bookmarks?"), wxS("ComicZipViewer"), wxYES_NO | wxCENTER | wxICON_QUESTION, &dialog) == wxID_NO)
+		{
+			return;
+		}
+
 		auto& app = wxGetApp();
 		app.DeleteAllBookmarks();
 		auto bookmarks = app.GetAllMarkedPages();
 		dialog.SetList(std::move(bookmarks));
-	} , ID_BTN_DELETE_ALL_BOOKMARK);
+	} , ID_CLEAR_BOOKMARK);
 
 	dialog.SetSize(m_pFrame->GetSize() / 2);
 	dialog.CenterOnParent();
@@ -238,6 +243,11 @@ void View::OnMenuRecentFile(wxCommandEvent& evt)
 
 void View::OnCommandRemoveAllLatestReadPages(wxCommandEvent&)
 {
+	if(wxMessageBox(wxS("Do you clear recent files?"), wxS("ComicZipViewer"), wxYES_NO | wxCENTER | wxICON_QUESTION, m_pFrame) == wxID_NO)
+	{
+		return;
+	}
+
 	auto& app = wxGetApp();
 	app.DeleteAllLatestReadPages();
 	m_pFrame->SetRecentFiles(app.GetRecentReadBookAndPage());
@@ -279,6 +289,6 @@ BEGIN_EVENT_TABLE(View , wxEvtHandler)
 	EVT_BUTTON(ID_BTN_MOVE_TO_PREV_PAGE , View::OnClickedMovePrevBook)
 	EVT_COMMAND(wxID_ANY, wxEVT_OPEN_BOOKMARK, View::OnClickedBookmarks)
 	EVT_MENU_RANGE(ID_MENU_RECENT_FILE_ITEM_BEGIN, ID_MENU_RECENT_FILE_ITEM_END, View::OnMenuRecentFile)
-	EVT_MENU(ID_BTN_CLEAR_LATEST_READ_PAGE, View::OnCommandRemoveAllLatestReadPages)
+	EVT_MENU(ID_CLEAR_LATEST_READ_PAGE, View::OnCommandRemoveAllLatestReadPages)
 	EVT_MENU(wxID_ANY , View::OnMenu)
 END_EVENT_TABLE()
