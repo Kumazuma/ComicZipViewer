@@ -216,6 +216,8 @@ void CustomCaptionFrame::Render()
 		RenderCaption();
 		d2dContext->PopLayer();
 	}
+
+	RenderButtons();
 	
 	d2dContext->EndDraw();
 	swapchain->Present(1, 0);
@@ -280,8 +282,56 @@ void CustomCaptionFrame::RenderCaption()
 	m_renderSystem.GetSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black), &blackColorBrush);
 	m_renderSystem.GetD2DDeviceContext(&context);
 	// Paint Title Bar
-	const int dpi = ::GetDpiForWindow(GetHWND());
-	float icon_dimension = GetScaleUsingDpi(10, dpi) / 16.f;
+	context->FillRectangle(D2D1::RectF(
+		m_titleBarRect.GetLeft(),
+		m_titleBarRect.GetTop(),
+		m_titleBarRect.GetRight() + 1.f,
+		m_titleBarRect.GetBottom() + 1.f
+	), lightGrayBrush.Get());
+	
+
+	// Draw Text
+	float leftButtonsStart = m_titleBarButtonRects.fullScreen.GetLeft();
+	context->PushLayer(D2D1::LayerParameters(D2D1::RectF(0.f, 0.f, leftButtonsStart, m_titleBarRect.GetBottom() + 1.f)), nullptr);
+
+	auto title = GetTitle();
+	auto titleArea = ::GetRect(m_titleBarRect);
+	titleArea.left += ( titleArea.bottom - titleArea.top );
+	const float areaCenter = ( titleArea.bottom + titleArea.top ) * 0.5f;
+	titleArea.top = areaCenter - m_titleTextSize * 0.5f;
+	titleArea.bottom = areaCenter + m_titleTextSize * 0.5f;
+	titleArea.right = std::numeric_limits<int16_t>::max();
+	context->DrawText(title.wx_str() , title.Length() , m_dwTextFormat.Get() , titleArea , blackColorBrush.Get());
+
+	context->PopLayer();
+}
+
+void CustomCaptionFrame::RenderButtons()
+{
+	ComPtr<ID2D1SolidColorBrush> lightGrayBrush;
+	ComPtr<ID2D1SolidColorBrush> hoveredColorBrush;
+	ComPtr<ID2D1SolidColorBrush> buttonColorBrush;
+	ComPtr<ID2D1SolidColorBrush> whiteColorBrush;
+	ComPtr<ID2D1SolidColorBrush> blackColorBrush;
+	ComPtr<ID2D1DeviceContext1> context;
+	D2D1::ColorF buttonColor(127.f / 255.f, 127.f / 255.f, 127.f / 255.f, 1.f);
+	if(HasFocus())
+	{
+		buttonColor = D2D1::ColorF(33.f / 255.f, 33.f / 255.f, 33.f / 255.f, 1.f);
+	}
+
+	m_renderSystem.GetSolidColorBrush(D2D1::ColorF(130.f / 255.f, 130.f / 255.f, 130.f / 255.f, 1.f), &hoveredColorBrush);
+	m_renderSystem.GetSolidColorBrush(buttonColor, &buttonColorBrush);
+	m_renderSystem.GetSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &whiteColorBrush);
+	m_renderSystem.GetSolidColorBrush(D2D1::ColorF(D2D1::ColorF::LightGray), &lightGrayBrush);
+	m_renderSystem.GetSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black), &blackColorBrush);
+	m_renderSystem.GetD2DDeviceContext(&context);
+	context->FillRectangle(D2D1::RectF(
+		m_titleBarButtonRects.fullScreen.GetLeft(),
+		m_titleBarButtonRects.fullScreen.GetTop(),
+		m_titleBarButtonRects.close.GetRight() + 1.f,
+		m_titleBarButtonRects.close.GetBottom()
+	), lightGrayBrush.Get());
 	wxRect* rc = nullptr;
 	switch(m_currentHoveredButtonId)
 	{
@@ -301,12 +351,6 @@ void CustomCaptionFrame::RenderCaption()
 		rc = &m_titleBarButtonRects.fullScreen;
 	}
 
-	context->FillRectangle(D2D1::RectF(
-		m_titleBarRect.GetLeft(),
-		m_titleBarRect.GetTop(),
-		m_titleBarRect.GetRight() + 1.f,
-		m_titleBarRect.GetBottom() + 1.f
-	), lightGrayBrush.Get());
 	if(rc != nullptr)
 	{
 		auto rcf = D2D1::RectF(
@@ -319,21 +363,8 @@ void CustomCaptionFrame::RenderCaption()
 		context->FillRectangle(rcf, hoveredColorBrush.Get());
 	}
 
-	// Draw Text
-	float leftButtonsStart = m_titleBarButtonRects.fullScreen.GetLeft();
-	context->PushLayer(D2D1::LayerParameters(D2D1::RectF(0.f, 0.f, leftButtonsStart, m_titleBarRect.GetBottom() + 1.f)), nullptr);
-
-	auto title = GetTitle();
-	auto titleArea = ::GetRect(m_titleBarRect);
-	titleArea.left += ( titleArea.bottom - titleArea.top );
-	const float areaCenter = ( titleArea.bottom + titleArea.top ) * 0.5f;
-	titleArea.top = areaCenter - m_titleTextSize * 0.5f;
-	titleArea.bottom = areaCenter + m_titleTextSize * 0.5f;
-	titleArea.right = std::numeric_limits<int16_t>::max();
-	context->DrawText(title.wx_str() , title.Length() , m_dwTextFormat.Get() , titleArea , blackColorBrush.Get());
-
-	context->PopLayer();
-
+	const int dpi = ::GetDpiForWindow(GetHWND());
+	float icon_dimension = GetScaleUsingDpi(10, dpi) / 16.f;
 	D2D1_RECT_F icon_rect{ };
 	if(!IsFullScreen())
 	{
@@ -432,6 +463,7 @@ void CustomCaptionFrame::RenderCaption()
 		rect2.bottom -= GetScaleUsingDpi(5 , dpi) / 16.f;
 		context->DrawRoundedRectangle(D2D1::RoundedRect(rect2, GetScaleUsingDpi(1 , dpi) / 16.f, GetScaleUsingDpi(1 , dpi) / 16.f) , buttonColorBrush.Get(), GetScaleUsingDpi(1 , dpi) / 16.f);
 	}
+
 }
 
 void CustomCaptionFrame::DoThaw()
@@ -477,6 +509,9 @@ WXLRESULT CustomCaptionFrame::OnNcCalcSize(UINT nMsg, WPARAM wParam, LPARAM lPar
 		requestedClientRect->bottom -= m_borderThickness.y;
 		if (IsMaximized()) 
 		{
+			requestedClientRect->right += m_borderThickness.x;
+			requestedClientRect->left -= m_borderThickness.x;
+			requestedClientRect->bottom += m_borderThickness.y;
 			requestedClientRect->top += m_borderPadding;
 		}
 	}

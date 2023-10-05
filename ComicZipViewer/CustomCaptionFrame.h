@@ -41,6 +41,7 @@ protected:
 
 	void DeferredRender();
 	void RenderCaption();
+	void RenderButtons();
 	virtual void DoRender() {}
 	virtual void DoThaw() override;
 	void ResizeSwapChain(wxSize& size);

@@ -260,31 +260,62 @@ void ComicZipViewerFrame::ShowImage(const ComPtr<IWICBitmap>& image)
 		bitmap = m_bitmap;
 	}
 
-	ComPtr<ID3D11Texture2D> srcTexture;
-	texture2dDesc.ArraySize = 1;
-	texture2dDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	texture2dDesc.MipLevels = 1;
-	texture2dDesc.CPUAccessFlags = 0;
-	texture2dDesc.Usage = D3D11_USAGE_DEFAULT;
+	bool needUpdateBufferRecreate = m_d3dUploadTexture2d == nullptr;
+	D3D11_TEXTURE2D_DESC uploadTextureDesc{};
+	if(!needUpdateBufferRecreate)
+	{
+		m_d3dUploadTexture2d->GetDesc(&uploadTextureDesc);
+		needUpdateBufferRecreate = uploadTextureDesc.Width < width || uploadTextureDesc.Height < height;
+	}
+
+	if(needUpdateBufferRecreate)
+	{
+		uploadTextureDesc.ArraySize = 1;
+		uploadTextureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+		uploadTextureDesc.MipLevels = 1;
+		uploadTextureDesc.Usage = D3D11_USAGE_DYNAMIC;
+		uploadTextureDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+		uploadTextureDesc.SampleDesc.Count = 1;
+		uploadTextureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		uploadTextureDesc.Width = width;
+		uploadTextureDesc.Height = height;
+		hr = d3dDevice->CreateTexture2D(&uploadTextureDesc , nullptr , &m_d3dUploadTexture2d);
+		assert(SUCCEEDED(hr));
+	}
+
 	texture2dDesc.SampleDesc.Count = 1;
 	WICRect rect{0, 0, (int)width, (int)height};
 	ComPtr<IWICBitmapLock> locker;
 	hr = image->Lock(&rect, WICBitmapLockRead, &locker);
+	D3D11_MAPPED_SUBRESOURCE mappedSubresource{};
+	d3dContext->Map(m_d3dUploadTexture2d.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedSubresource);
 	UINT bufferSize;
 	UINT stride;
 	BYTE* ptr;
 	D3D11_SUBRESOURCE_DATA subResData{};
 	locker->GetDataPointer(&bufferSize, &ptr);
 	locker->GetStride(&stride);
-	subResData.pSysMem = ptr;
-	subResData.SysMemPitch = stride;
-	texture2dDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	texture2dDesc.Width = width;
-	texture2dDesc.Height = height;
-	hr = d3dDevice->CreateTexture2D(&texture2dDesc , &subResData , &srcTexture);
-	assert(SUCCEEDED(hr));
-	d3dContext->CopyResource(m_d3dTexture2d.Get(), srcTexture.Get());
+
+	if(mappedSubresource.RowPitch == stride)
+	{
+		memcpy(mappedSubresource.pData, ptr, stride * height);
+	}
+	else
+	{
+		uint8_t* dest = (uint8_t*)mappedSubresource.pData;
+		uint8_t* source = ptr;
+		for(uint32_t i = 0; i < height; ++i)
+		{
+			memcpy(dest, source, stride);
+			dest += mappedSubresource.RowPitch;
+			source += stride;
+		}
+	}
+
+	d3dContext->Unmap(m_d3dUploadTexture2d.Get(), 0);
 	
+	D3D11_BOX box{0, 0, 0, width, height, 1};
+	d3dContext->CopySubresourceRegion(m_d3dTexture2d.Get(), 0, 0, 0, 0,  m_d3dUploadTexture2d.Get(), 0, &box);
 	if(needCreationBitmap)
 	{
 		ComPtr<IDXGISurface> surface;
@@ -310,12 +341,11 @@ void ComicZipViewerFrame::OnKeyDown(wxKeyEvent& evt)
 	switch(evt.GetKeyCode())
 	{
 	case WXK_UP:
-		ScrollImageVertical(m_clientSize.y * 0.04f, true);
+		ScrollImageVertical(m_clientSize.y * 0.04f, true, 1.f);
 		return;
 	case WXK_DOWN:
-		ScrollImageVertical(m_clientSize.y * -0.04f, true);
+		ScrollImageVertical(m_clientSize.y * -0.04f, true, 1.f);
 		return;
-
 	case WXK_LEFT:
 		event.SetId(wxID_BACKWARD);
 		m_pView->ProcessEvent(event);
@@ -493,7 +523,7 @@ void ComicZipViewerFrame::OnMouseMove(wxMouseEvent& evt)
 		if(diff.y != 0)
 		{
 			m_prevMousePosition->y = pos.y;
-			ScrollImageVertical(diff.y, false);
+			ScrollImageVertical(diff.y, false, 1.f);
 		}
 		Thaw();
 	}
@@ -943,7 +973,7 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 	{
 		if(evt.GetWheelAxis() == wxMOUSE_WHEEL_VERTICAL)
 		{
-			ScrollImageVertical( m_clientSize.y * 0.08f * (static_cast<float>(evt.GetWheelRotation()) / 120.f), true);
+			ScrollImageVertical( m_clientSize.y * 0.08f * (static_cast<float>(evt.GetWheelRotation()) / 120.f), true, 1.f / std::abs((static_cast<float>(evt.GetWheelRotation()) / 120.f)));
 		}
 		else
 		{
@@ -988,7 +1018,6 @@ void ComicZipViewerFrame::ScrollImageHorizontal(float delta, bool movableOtherPa
 				m_pView->ProcessEvent(event);
 				return;
 			}
-
 		}
 	}
 	else if(movableOtherPage)
@@ -1000,7 +1029,7 @@ void ComicZipViewerFrame::ScrollImageHorizontal(float delta, bool movableOtherPa
 	TryRender();
 }
 
-void ComicZipViewerFrame::ScrollImageVertical(float delta, bool movableOtherPage)
+void ComicZipViewerFrame::ScrollImageVertical(float delta, bool movableOtherPage, float gapGravity)
 {
 	const float prevCenterY = m_center.y;
 	const float currentCenterY = prevCenterY + delta;
@@ -1012,7 +1041,8 @@ void ComicZipViewerFrame::ScrollImageVertical(float delta, bool movableOtherPage
 		m_center.y = copysign(m_movableCenterRange.height, delta);
 		if(movableOtherPage)
 		{
-			m_centerCorrectionValue.y -= std::abs(delta);
+			m_centerCorrectionValue.y = m_centerCorrectionValue.y * gapGravity - std::abs(delta);
+			m_centerCorrectionValue.y = m_centerCorrectionValue.y / gapGravity;
 			if(m_centerCorrectionValue.y <= 0.f )
 			{
 				m_centerCorrectionValue.x = m_clientSize.x * 0.08f;
@@ -1036,8 +1066,8 @@ void ComicZipViewerFrame::ScrollImageVertical(float delta, bool movableOtherPage
 	}
 	else if(movableOtherPage)
 	{
-		m_centerCorrectionValue.x = m_clientSize.x * 0.5f * 0.49f;
-		m_centerCorrectionValue.y = m_clientSize.y * 0.5f * 0.49f;
+		m_centerCorrectionValue.x = m_clientSize.x * 0.08f;
+		m_centerCorrectionValue.y = m_clientSize.y * 0.08f;
 	}
 
 	TryRender();

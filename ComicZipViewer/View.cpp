@@ -208,7 +208,7 @@ void View::OnClickedBookmarks(wxCommandEvent&)
 
 	dialog.Bind(wxEVT_TOOL , [&dialog, this](wxCommandEvent&)
 	{
-		if(wxMessageBox(wxS("Do you clear all bookmarks?"), wxS("ComicZipViewer"), wxYES_NO | wxCENTER | wxICON_QUESTION, &dialog) == wxID_NO)
+		if(wxMessageBox(wxS("Do you clear all bookmarks?"), wxS("ComicZipViewer"), wxYES_NO | wxCENTER | wxICON_QUESTION, &dialog) == wxNO)
 		{
 			return;
 		}
@@ -243,7 +243,7 @@ void View::OnMenuRecentFile(wxCommandEvent& evt)
 
 void View::OnCommandRemoveAllLatestReadPages(wxCommandEvent&)
 {
-	if(wxMessageBox(wxS("Do you clear recent files?"), wxS("ComicZipViewer"), wxYES_NO | wxCENTER | wxICON_QUESTION, m_pFrame) == wxID_NO)
+	if(wxMessageBox(wxS("Do you clear recent files?"), wxS("ComicZipViewer"), wxYES_NO | wxCENTER | wxICON_QUESTION, m_pFrame) == wxNO)
 	{
 		return;
 	}

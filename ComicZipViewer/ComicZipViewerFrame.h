@@ -63,7 +63,7 @@ protected:
 	void UpdateScaledImageSize();
 	void ScrollImageHorizontal(float delta, bool movableOtherPage);
 	void OnMouseWheel(wxMouseEvent& evt);
-	void ScrollImageVertical(float delta, bool movableOtherPage);
+	void ScrollImageVertical(float delta, bool movableOtherPage, float gapGravity);
 	void OnMenu(wxCommandEvent& evt);
 	void BeginButtonProcess(wxPoint& pos);
 	void EndButtonProcess(wxPoint& pos);
@@ -86,6 +86,7 @@ private:
 	ComPtr<ID3D11ComputeShader> m_d3dCsRgb24WithAlphaToRgba32;
 	ComPtr<ID3D11UnorderedAccessView> m_d3dUavTexture2d;
 	ComPtr<ID3D11Texture2D> m_d3dTexture2d;
+	ComPtr<ID3D11Texture2D> m_d3dUploadTexture2d;
 	std::unordered_map<std::wstring_view, std::tuple<wxBitmapBundle, D2D1_RECT_F>> m_iconBitmapInfo;
 	bool m_enterIsDown;
 	bool m_shownControlPanel;
