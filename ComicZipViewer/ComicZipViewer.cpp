@@ -36,12 +36,12 @@ bool ComicZipViewerApp::OnInit()
 	auto& stdPaths = wxStandardPaths::Get();
 	wxFileName dataDirFileName(stdPaths.GetUserLocalDataDir(), wxS(""));
 	dataDirFileName.AppendDir(wxS("thumbnail"));
-	m_thunbnailDirPath = dataDirFileName.GetPath();
-	wxFileName thumbnailDirName(m_thunbnailDirPath, wxS(""));
+	m_thumbnailDirPath = dataDirFileName.GetPath();
+	wxFileName thumbnailDirName(m_thumbnailDirPath, wxS(""));
 	if(!thumbnailDirName.IsDir())
 	{
-		if(wxMkDir(m_thunbnailDirPath) != 0)
-			m_thunbnailDirPath.Clear();
+		if(wxMkDir(m_thumbnailDirPath) != 0)
+			m_thumbnailDirPath.Clear();
 	}
 	
 	m_pModel = new Model();
@@ -212,7 +212,14 @@ ComPtr<IWICBitmap> ComicZipViewerApp::GetDecodedImage(uint32_t idx)
 	bool loaded = SUCCEEDED(decoder->GetFrame(0, &decodedFrame));
 	if(loaded)
 	{
+		const int prev = m_latestLoadedImageIdx;
 		m_latestLoadedImageIdx = idx;
+		if(prev != m_latestLoadedImageIdx)
+		{
+			m_vectorReadImage = (m_latestLoadedImageIdx - prev);
+			m_vectorReadImage = m_vectorReadImage / (m_latestLoadedImageIdx - prev);
+		}
+		
 		WICPixelFormatGUID decodedImagePixelFormat;
 		decodedFrame->GetPixelFormat(&decodedImagePixelFormat);
 		if(decodedImagePixelFormat == GUID_WICPixelFormat32bppRGB
@@ -323,15 +330,15 @@ void ComicZipViewerApp::AddMarked(int idx)
 		thumbnailWidth = (ratio * 256) / 1024;
 	}
 
-	if( !wxDirExists(m_thunbnailDirPath) )
+	if( !wxDirExists(m_thumbnailDirPath) )
 	{
-		wxMkdir(m_thunbnailDirPath);
+		wxMkdir(m_thumbnailDirPath);
 	}
 
 	//auto scaledImage = image.Scale(thumbnailWidth, thumbnailHeight);
-	//wxFileName thumbnailFileName(m_thunbnailDirPath, wxS(""));
+	//wxFileName thumbnailFileName(m_thumbnailDirPath, wxS(""));
 	//wxFile file;
-	//thumbnailFileName.AssignTempFileName(m_thunbnailDirPath + wxS("/"), &file);
+	//thumbnailFileName.AssignTempFileName(m_thumbnailDirPath + wxS("/"), &file);
 	//wxFileOutputStream oStream(file);
 	//scaledImage.SaveFile(oStream, wxBITMAP_TYPE_JPEG);
 	//auto thumbnailPath = thumbnailFileName.GetFullPath();
@@ -802,16 +809,16 @@ void ComicZipViewerApp::InsertPageNameForReopen(const wxString& prefix, const wx
 	sqlite3_reset(m_pStmtInsertLatestPage);
 }
 
-bool ComicZipViewerApp::Open(const wxString& filePath)
+bool ComicZipViewerApp::Open(const wxString &filePath)
 {
 	wxFileName path(filePath);
 	auto parentPrefixPath = path.GetPath();
 	wxStructStat stat;
-	wxStat(parentPrefixPath , &stat);
-	auto& bookList = m_pModel->bookList;
-	if(filePath == m_pModel->openedPath )
+	wxStat(parentPrefixPath, &stat);
+	auto &bookList = m_pModel->bookList;
+	if(filePath == m_pModel->openedPath)
 	{
-		if ( parentPrefixPath != m_pModel->parentPrefixPath || stat.st_mtime != m_pModel->latestModifiedTime )
+		if(parentPrefixPath != m_pModel->parentPrefixPath || stat.st_mtime != m_pModel->latestModifiedTime)
 		{
 			bookList = GetBookListInParentDir(parentPrefixPath);
 			m_pModel->parentPrefixPath.swap(parentPrefixPath);
@@ -824,11 +831,11 @@ bool ComicZipViewerApp::Open(const wxString& filePath)
 	auto newPageCollection = PageCollection::Create(filePath);
 	if(newPageCollection == nullptr)
 	{
-		if( !wxFileName::Exists(filePath) )
+		if(!wxFileName::Exists(filePath))
 		{
 			wxFileName path(filePath);
 			auto newBookList = GetBookListInParentDir(path.GetPath());
-			if( !newBookList.empty() )
+			if(!newBookList.empty())
 			{
 				bookList = std::move(newBookList);
 				m_pModel->parentPrefixPath.swap(parentPrefixPath);
@@ -840,7 +847,7 @@ bool ComicZipViewerApp::Open(const wxString& filePath)
 	}
 
 
-	if(parentPrefixPath != m_pModel->parentPrefixPath || stat.st_mtime != m_pModel->latestModifiedTime )
+	if(parentPrefixPath != m_pModel->parentPrefixPath || stat.st_mtime != m_pModel->latestModifiedTime)
 	{
 		bookList = GetBookListInParentDir(parentPrefixPath);
 		m_pModel->parentPrefixPath.swap(parentPrefixPath);
@@ -886,7 +893,8 @@ bool ComicZipViewerApp::Open(const wxString& filePath)
 				break;
 
 			isImageFile = false;
-		} while(false);
+		}
+		while(false);
 
 		if(isImageFile)
 		{
@@ -914,13 +922,20 @@ bool ComicZipViewerApp::Open(const wxString& filePath)
 
 	while((ret = sqlite3_step(m_pStmtSelectMarkedPages)) == SQLITE_ROW)
 	{
-		auto pageName = wxString::FromUTF8((const char*)sqlite3_column_text(m_pStmtSelectMarkedPages, 0));
+		auto pageName = wxString::FromUTF8((const char *)sqlite3_column_text(m_pStmtSelectMarkedPages, 0));
 		m_pModel->markedPageSet.insert(pageName);
 	}
 
 	sqlite3_reset(m_pStmtSelectMarkedPages);
 
 	return true;
+}
+void ComicZipViewerApp::OnIdleProcessFileCache(wxIdleEvent &evt)
+{
+	if(m_pModel->openedPath.IsEmpty())
+		return;
+
+
 }
 
 void ComicZipViewerApp::MovePage(const wxString& pageName)
@@ -931,3 +946,7 @@ void ComicZipViewerApp::MovePage(const wxString& pageName)
 		MovePage(it - m_pModel->pageList.begin());
 	}
 }
+
+BEGIN_EVENT_TABLE(ComicZipViewerApp, wxApp)
+EVT_IDLE(ComicZipViewerApp::OnIdleProcessFileCache)
+END_EVENT_TABLE();

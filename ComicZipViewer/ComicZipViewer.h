@@ -9,6 +9,8 @@ class View;
 struct Model;
 class ComicZipViewerApp: public wxApp
 {
+    DECLARE_EVENT_TABLE();
+
 public:
 	ComicZipViewerApp();
 	ComicZipViewerApp(const ComicZipViewerApp&) = delete;
@@ -43,6 +45,7 @@ private:
 	bool InitializeDatabase();
 	void InsertPageNameForReopen(const wxString& prefix, const wxString& pageName);
 	bool Open(const wxString& filePath);
+    void OnIdleProcessFileCache(wxIdleEvent &evt);
 
 private:
 	UpdateSystem m_updateSystem;
@@ -55,8 +58,9 @@ private:
 	wxJPEGHandler m_jpegHandler;
 	wxImage m_latestLoadedImage;
 	sqlite3* m_pSqlite;
-	wxString m_thunbnailDirPath;
+	wxString m_thumbnailDirPath;
 	int m_latestLoadedImageIdx;
+	int m_vectorReadImage;
 	sqlite3_stmt* m_pStmtInsertLatestPage;
 	sqlite3_stmt* m_pStmtSelectLatestPage;
 	sqlite3_stmt* m_pStmtInsertBookmark;
