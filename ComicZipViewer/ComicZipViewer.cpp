@@ -252,7 +252,7 @@ ComPtr<IWICBitmap> ComicZipViewerApp::GetDecodedImage(uint32_t idx)
 			if(FAILED(hr))
 			{
 				return {};
-			}
+			} 
 
 		}
 	}
@@ -920,7 +920,7 @@ bool ComicZipViewerApp::Open(const wxString &filePath)
 	auto prefix = filePath.ToUTF8();
 	int ret = sqlite3_bind_text(m_pStmtSelectMarkedPages, 1, prefix, -1, nullptr);
 	assert(ret == SQLITE_OK);
-
+	
 	while((ret = sqlite3_step(m_pStmtSelectMarkedPages)) == SQLITE_ROW)
 	{
 		auto pageName = wxString::FromUTF8((const char *)sqlite3_column_text(m_pStmtSelectMarkedPages, 0));

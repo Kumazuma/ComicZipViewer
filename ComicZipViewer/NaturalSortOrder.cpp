@@ -24,9 +24,12 @@ uint32_t GetNumber(const wxString& str, size_t& offset)
 	return value;
 }
 
+
+
 bool NaturalSortOrder::operator()(const wxString& lhs, const wxString& rhs) const
 {
 #if wxUSE_UNICODE_WCHAR
+#if !defined(__WXMSW__)
 	size_t lhsOffset = 0;
 	size_t rhsOffset = 0;
 	while(lhs.size() != lhsOffset && rhs.size() != rhsOffset)
@@ -72,6 +75,18 @@ bool NaturalSortOrder::operator()(const wxString& lhs, const wxString& rhs) cons
 		lhsOffset += 1;
 		rhsOffset += 1;
 	}
+#else
+	return CompareStringEx(
+		LOCALE_NAME_USER_DEFAULT,
+		NORM_LINGUISTIC_CASING | SORT_DIGITSASNUMBERS,
+		lhs.wx_str(),
+		lhs.length(),
+		rhs.wx_str(),
+		rhs.length(),
+		nullptr,
+		nullptr,
+		0) == CSTR_LESS_THAN;
+#endif
 
 #else
 #error "Not implemented yet!"
