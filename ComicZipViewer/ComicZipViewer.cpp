@@ -461,6 +461,7 @@ std::vector<wxString> ComicZipViewerApp::GetBookListInParentDir(const wxString& 
 	Traverser traverser(list);
 	wxDir dir(parentPath);
 	dir.Traverse(traverser, wxS("*.*"), wxDIR_FILES);
+	std::stable_sort(list.begin(), list.end(), NaturalSortOrder{});
 	return list;
 }
 
