@@ -1,147 +1,139 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="소스 파일">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="헤더 파일">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
     <Filter Include="리소스 파일">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="core">
+      <UniqueIdentifier>{df9fc339-e941-4e6c-827e-df076baf0fb2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ui">
+      <UniqueIdentifier>{9f49e16e-5433-464d-a85f-a8587d2ce8b1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="etc">
+      <UniqueIdentifier>{951ffa25-8650-4c0a-8487-71b2f99e9668}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="resource.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="BookmarksDialog.h">
+      <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="ComicZipViewerFrame.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="framework.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="ComicZipViewer.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="View.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="Model.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="PageCollectionZip.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="PageCollection.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="IBuffer.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="IAllocator.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="SimpleBuffer.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="NaturalSortOrder.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="VisualWidget.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="RadioButtonGroup.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="BookmarksDialog.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="ToastSystem.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="tick.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="Event.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="PageCollectionCbt.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="CustomCaptionFrame.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>ui</Filter>
     </ClInclude>
-    <ClInclude Include="D2DRenderSystem.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="ComicZipViewer.h">
+      <Filter>core</Filter>
     </ClInclude>
-    <ClInclude Include="UpdateSystem.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Model.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="PageCollectionZip.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="NaturalSortOrder.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="PageCollection.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="PageCollectionCbt.h">
+      <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="id.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="tick.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="ToastSystem.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="UpdateSystem.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="SimpleBuffer.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="D2DRenderSystem.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="View.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>etc</Filter>
+    </ClInclude>
+    <ClInclude Include="Event.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="framework.h">
+      <Filter>etc</Filter>
+    </ClInclude>
+    <ClInclude Include="IBuffer.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="IAllocator.h">
+      <Filter>core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ComicZipViewer.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="BookmarksDialog.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="ComicZipViewerFrame.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="View.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="Model.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="PageCollectionZip.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="PageCollection.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="IBuffer.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="IAllocator.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="SimpleBuffer.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="NaturalSortOrder.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="VisualWidget.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="RadioButtonGroup.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="BookmarksDialog.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="ToastSystem.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="Event.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="CustomCaptionFrame.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="D2DRenderSystem.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Model.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="NaturalSortOrder.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="PageCollection.cpp">
+      <Filter>core</Filter>
     </ClCompile>
     <ClCompile Include="PageCollectionCbt.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="PageCollectionZip.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="ComicZipViewer.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="ToastSystem.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
     <ClCompile Include="UpdateSystem.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="SimpleBuffer.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="D2DRenderSystem.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="View.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="Event.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="IAllocator.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="IBuffer.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="framework.cpp">
+      <Filter>etc</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

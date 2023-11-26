@@ -790,6 +790,7 @@ LIMIT 32
 	{
 		OutputDebugStringA(sqlite3_errmsg(m_pSqlite));
 	}
+
 	assert(ret == SQLITE_OK);
 
 	return true;
