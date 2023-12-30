@@ -499,19 +499,22 @@ WXLRESULT CustomCaptionFrame::OnNcCalcSize(UINT nMsg, WPARAM wParam, LPARAM lPar
 		return wxFrame::MSWWindowProc(nMsg , wParam , lParam);
 	}
 
+	int dpi = GetSystemDpiForProcess(GetCurrentProcess());
+	m_borderThickness.x = GetSystemMetricsForDpi(SM_CXFRAME, dpi);
+	m_borderThickness.y = GetSystemMetricsForDpi(SM_CYFRAME, dpi);
+	m_borderPadding = GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+
 	NCCALCSIZE_PARAMS* params = (NCCALCSIZE_PARAMS*)lParam;
 	RECT* requestedClientRect = params->rgrc;
 
 	if(!IsFullScreen())
 	{
-		requestedClientRect->right -= m_borderThickness.x;
-		requestedClientRect->left += m_borderThickness.x;
-		requestedClientRect->bottom -= m_borderThickness.y;
+		requestedClientRect->right -= m_borderThickness.x + m_borderPadding;
+		requestedClientRect->left += m_borderThickness.x + m_borderPadding;
+		requestedClientRect->bottom -= m_borderThickness.y + m_borderPadding;
+
 		if (IsMaximized()) 
 		{
-			requestedClientRect->right += m_borderThickness.x;
-			requestedClientRect->left -= m_borderThickness.x;
-			requestedClientRect->bottom += m_borderThickness.y;
 			requestedClientRect->top += m_borderPadding;
 		}
 	}
@@ -675,9 +678,10 @@ WXLRESULT CustomCaptionFrame::OnNcMouseEnter(UINT nMsg, WPARAM wParam, LPARAM lP
 
 void CustomCaptionFrame::UpdateCaptionDesc(int dpi)
 {
-	m_borderThickness.x = GetSystemMetricsForDpi(SM_CXFRAME, dpi);
-	m_borderThickness.y = GetSystemMetricsForDpi(SM_CYFRAME, dpi);
-	m_borderPadding = GetSystemMetricsForDpi(SM_CXPADDEDBORDER, 96);
+	int systemDpi = GetSystemDpiForProcess(GetCurrentProcess());
+	m_borderThickness.x = GetSystemMetricsForDpi(SM_CXFRAME, systemDpi);
+	m_borderThickness.y = GetSystemMetricsForDpi(SM_CYFRAME, systemDpi);
+	m_borderPadding = GetSystemMetricsForDpi(SM_CXPADDEDBORDER, systemDpi);
 
 	SIZE title_bar_size = {0};
 	LOGFONTW fontDesc;
@@ -698,6 +702,8 @@ void CustomCaptionFrame::UpdateCaptionDesc(int dpi)
 	
 	RECT rect;
 	::GetClientRect(GetHWND(), &rect);
+	rect.top -= m_borderPadding;
+	rect.right += m_borderThickness.x;
 	rect.bottom = rect.top + height;
 	m_titleBarRect.SetTop(rect.top);
 	m_titleBarRect.SetBottom(rect.bottom);
