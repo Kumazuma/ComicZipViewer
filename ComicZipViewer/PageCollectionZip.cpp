@@ -159,7 +159,7 @@ class LimitedSizedList
 {
 	struct Node
 	{
-		uint8_t payload[sizeof(T)];
+		T* obj;
 		Node *prev;
 		Node *next;
 	};
@@ -194,12 +194,12 @@ public:
 
 		value_type& operator*() const
 		{
-			return *(value_type*)node->payload;
+			return *(value_type*)node->obj;
 		}
 
 		value_type* operator->() const
 		{
-			return (value_type*)node->payload;
+			return (value_type*)node->obj;
 		}
 
 		bool operator==(It rhs) const
@@ -214,7 +214,8 @@ public:
 	};
 
 	LimitedSizedList() : nodes{}
-	{ 
+	{
+		static_assert(sizeof(payload[0]) == sizeof(T));
 		size_ = 0;
 		idle_head = nullptr;
 		dummy_head.next = &dummy_tail;
@@ -224,6 +225,7 @@ public:
 		for ( Node& node: nodes )
 		{
 			node.next = idle_head;
+			node.obj = (T*)(payload[&node - nodes]);
 			idle_head = &node;
 		}
 	}
@@ -298,7 +300,7 @@ public:
 			return *(T *)nullptr;
 		}
 
-		return *(T*)dummy_head.next->payload;
+		return *(T*)dummy_head.next->obj;
 	}
 
 	T& back()
@@ -306,7 +308,7 @@ public:
 		if (size() == 0)
 			return *(T*)nullptr;
 
-		return *(T*)dummy_tail.prev->payload;
+		return *(T*)dummy_tail.prev->obj;
 	}
 
 	size_t size() const
@@ -331,7 +333,7 @@ public:
 			Node* next = node->next;
 			prev->next = next;
 			next->prev = prev;
-			reinterpret_cast<T*>(node->payload)->~T();
+			reinterpret_cast<T*>(node->obj)->~T();
 			node->prev = nullptr;
 			node->next = idle_head;
 			idle_head = node;
@@ -353,7 +355,7 @@ public:
 		node->prev = nullptr;
 		node->next = nullptr;
 
-		new(node->payload) T(std::forward<Args>(args)...);
+		new(node->obj) T(std::forward<Args>(args)...);
 		Node* next = it.node;
 		Node* prev = next->prev;
 		prev->next = node;
@@ -364,6 +366,7 @@ public:
 	}
 
 private:
+	uint8_t payload[MAX_SIZE][sizeof(T)];
 	Node nodes[MAX_SIZE];
 	size_t size_;
 	Node *idle_head;
