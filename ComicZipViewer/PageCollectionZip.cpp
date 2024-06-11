@@ -2,12 +2,13 @@
 #include <wx/stream.h>
 #include "PageCollectionZip.h"
 #include "SimpleBuffer.h"
+#include "WinFileInputStrm.h"
 
 PageCollectionZip::PageCollectionZip(const wxString& filePath)
 	: m_pFileStream(nullptr)
 	, m_pZipStream(nullptr)
 {
-	m_pFileStream = new wxFileInputStream(filePath);
+	m_pFileStream = new WinFileInputStrm(filePath);
 	if(!m_pFileStream->IsOk())
 		return;
 
@@ -33,7 +34,7 @@ PageCollectionZip::~PageCollectionZip()
 	m_pFileStream = nullptr;
 	for(auto& entry: m_entryTable)
 	{
-		delete entry.second;
+		entry.second->UnRef();
 	}
 }
 

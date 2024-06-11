@@ -1,12 +1,13 @@
 #include "framework.h"
 #include "PageCollectionCbt.h"
 #include "SimpleBuffer.h"
+#include "WinFileInputStrm.h"
 
 PageCollectionCbt::PageCollectionCbt(const wxString& filePath)
 	: m_pFileStream(nullptr)
 	, m_pCbtStream(nullptr)
 {
-	m_pFileStream = new wxFileInputStream(filePath);
+	m_pFileStream = new WinFileInputStrm(filePath);
 	if(!m_pFileStream->IsOk())
 		return;
 

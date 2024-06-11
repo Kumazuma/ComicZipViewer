@@ -15,7 +15,7 @@ public:
 protected:
 
 private:
-	wxFileInputStream* m_pFileStream;
+	wxInputStream* m_pFileStream;
 	wxTarInputStream* m_pCbtStream;
 	std::unordered_map<wxString, wxTarEntry*> m_entryTable;
 };
