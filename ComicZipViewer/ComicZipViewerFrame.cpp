@@ -961,8 +961,8 @@ void ComicZipViewerFrame::UpdateScaledImageSize()
 		break;
 	}
 
-	m_centerCorrectionValue.x = m_clientSize.x * 0.08f;
-	m_centerCorrectionValue.y = m_clientSize.y * 0.08f;
+	m_centerCorrectionValue.x = m_clientSize.x * 1.f;
+	m_centerCorrectionValue.y = m_clientSize.y * 1.f;
 	m_scaledImageSize = D2D1::SizeF(width , height);
 	m_scale = 1.f;
 }
@@ -973,11 +973,11 @@ void ComicZipViewerFrame::OnMouseWheel(wxMouseEvent& evt)
 	{
 		if(evt.GetWheelAxis() == wxMOUSE_WHEEL_VERTICAL)
 		{
-			ScrollImageVertical( m_clientSize.y * 0.08f * (static_cast<float>(evt.GetWheelRotation()) / 120.f), true, 1.f / std::abs((static_cast<float>(evt.GetWheelRotation()) / 120.f)));
+			ScrollImageVertical( m_clientSize.y * 1.f * (static_cast<float>(evt.GetWheelRotation()) / 360.f), true, 4.f);
 		}
 		else
 		{
-			ScrollImageHorizontal(m_clientSize.x * -0.08f * (static_cast<float>(evt.GetWheelRotation()) / 120.f), true);
+			ScrollImageHorizontal(m_clientSize.x * -1.f * (static_cast<float>(evt.GetWheelRotation()) / 360.f), true);
 		}
 	}
 	else
@@ -1002,8 +1002,8 @@ void ComicZipViewerFrame::ScrollImageHorizontal(float delta, bool movableOtherPa
 			m_centerCorrectionValue.x -= std::abs(delta);
 			if(m_centerCorrectionValue.x <= 0.f )
 			{
-				m_centerCorrectionValue.x = m_clientSize.x * 0.08f;
-				m_centerCorrectionValue.y = m_clientSize.y * 0.08f;
+				m_centerCorrectionValue.x = m_clientSize.x * 1.f;
+				m_centerCorrectionValue.y = m_clientSize.y * 1.f;
 				wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
 				event.SetEventObject(this);
 				if(delta > 0.f)
@@ -1022,8 +1022,8 @@ void ComicZipViewerFrame::ScrollImageHorizontal(float delta, bool movableOtherPa
 	}
 	else if(movableOtherPage)
 	{
-		m_centerCorrectionValue.x = m_clientSize.x * 0.08f;
-		m_centerCorrectionValue.y = m_clientSize.y * 0.08f;
+		m_centerCorrectionValue.x = m_clientSize.x * 1.f;
+		m_centerCorrectionValue.y = m_clientSize.y * 1.f;
 	}
 
 	TryRender();
@@ -1041,12 +1041,12 @@ void ComicZipViewerFrame::ScrollImageVertical(float delta, bool movableOtherPage
 		m_center.y = copysign(m_movableCenterRange.height, delta);
 		if(movableOtherPage)
 		{
-			m_centerCorrectionValue.y = m_centerCorrectionValue.y * gapGravity - std::abs(delta);
-			m_centerCorrectionValue.y = m_centerCorrectionValue.y / gapGravity;
-			if(m_centerCorrectionValue.y <= 0.f )
+			m_centerCorrectionValue.y = m_centerCorrectionValue.y - std::abs(delta) / gapGravity;
+			const float a = abs(delta) - abs(abs(currentCenterY) - abs(m_center.y));
+			if(m_centerCorrectionValue.y <= 0.f || a <= 0.001f)
 			{
-				m_centerCorrectionValue.x = m_clientSize.x * 0.08f;
-				m_centerCorrectionValue.y = m_clientSize.y * 0.08f;
+				m_centerCorrectionValue.x = m_clientSize.x * 1.f;
+				m_centerCorrectionValue.y = m_clientSize.y * 1.f;
 				wxCommandEvent event{ wxEVT_BUTTON, wxID_ANY};
 				event.SetEventObject(this);
 				if(delta > 0)
@@ -1066,8 +1066,8 @@ void ComicZipViewerFrame::ScrollImageVertical(float delta, bool movableOtherPage
 	}
 	else if(movableOtherPage)
 	{
-		m_centerCorrectionValue.x = m_clientSize.x * 0.08f;
-		m_centerCorrectionValue.y = m_clientSize.y * 0.08f;
+		m_centerCorrectionValue.x = m_clientSize.x * 1.f;
+		m_centerCorrectionValue.y = m_clientSize.y * 1.f;
 	}
 
 	TryRender();
